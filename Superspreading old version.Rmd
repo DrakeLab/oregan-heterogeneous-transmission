@@ -1,0 +1,1266 @@
+---
+title: "Superspreading branching process"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(reshape2)
+library(metR)
+library(BellB)
+library(actuar) #simulate mixture branching process
+```
+
+```{r global-options, echo=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+#fig.width=12, fig.height=8, fig.path='Figs/',
+```
+
+
+```{r}
+R0<-function(p, R0D, R0A){
+R0<- p*R0D+(1-p)*R0A
+}
+
+R0adel<-function(R0D, delta){
+  R0A<-R0D + delta
+}
+
+varoffspringdel<-function(p, R0D, R0A){
+  var<-p*(R0D)*(1+R0D) + (1-p)*(R0A)*(1+R0A)- (p*R0D + (1-p)*R0A)^2
+  return(var)
+}
+PoissonGen<-function(s, R0=1.5){
+  gen<-exp(R0*(s-1))-s #solve prob generating fn = s for s. Note R0 > 1 otherwise prob of extinction = 1
+}
+PoissonMixtureGen<-function(s, p, R0D,R0A){
+  gen<-p*exp(R0D*(s-1))+(1-p)*exp(R0A*(s-1))-s
+}
+
+PoissonMixtureGenLimit<-function(s, p, R0D){
+  gen<-p*exp(R0D*(s-1))-s
+}
+PoissonProportionNotInf<-function(R0=1.5){
+  prop<-exp(-R0)
+}
+PoissonMixProportionNotInf<-function(p, R0D,R0A){
+  prop<-p*exp(-R0D)+(1-p)*exp(-R0A)
+}
+PoissonR0star<-function(R0=1.5){
+  extprob<-uniroot(PoissonGen, c(0, 0.9), R0=R0)$root
+  R0star<-R0*exp(R0*(extprob-1))
+}
+PoissonMixR0star<-function(p, R0D,R0A){
+  extprob<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=p, R0D=R0D, R0A=R0A)$root
+  R0star<-p*R0D*exp(R0D*(extprob-1))+(1-p)*R0A*exp(R0A*(extprob-1))
+}
+mean.chain<-function(R0){ 
+  meanchain<-1/(1-R0)
+}
+
+variance.chainPoisson<-function(R0){ 
+  #Argument: R0 > 1
+  extprob<-uniroot(PoissonGen, c(0, 0.9), R0=R0)$root
+  R0star<-PoissonR0star(R0)
+  varchain<-(extprob*(R0^2)*exp(R0*(extprob-1))+R0star*(1-R0star))/(1-R0star)^3
+}
+variance.chainPoissonMix<-function(p, R0D,R0A){ 
+  #Argument: R0 > 1, R0A = (R0 - p R0^D) /(1-p)
+  extprob<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=p, R0D=R0D, R0A=R0A)$root
+  R0star<-PoissonMixR0star(p, R0D,R0A)
+  varchain<-(extprob*((p*R0D^2)*exp(R0D*(extprob-1))+(1-p)*(R0A^2)*exp(R0A*(extprob-1)))+R0star*(1-R0star))/(1-R0star)^3
+  }
+gN<-function(n, p, R0D, R0A){
+  gn<-p*exp(-R0D)*(R0D)^n+(1-p)*exp(-R0A)*(R0A)^n
+}
+
+fNr<-function(n, r, p, R0D, R0A){
+  #n is the power (a+b)^n, a = p*exp(-R0D), b=p*exp(-R0D)
+  #r is the derivative required, r = 1, 2, ..., n-1
+  fn<-(factorial(n)/factorial(n-r))*(p*exp(-R0D)+(1-p)*exp(-R0A))^(n-r)
+}
+
+PoissonChain<-function(n, R0){
+  chain<-(exp(-n*R0)*(n*R0)^(n-1))/factorial(n)
+}
+
+probSSE<-function(p, R0D, R0A, x){
+  #Prob(cases >= x)
+  probSSE<-1-sum(p*dpois(0:x, R0D)+(1-p)*dpois(0:x, R0A))
+}
+
+probSSEpois<-function(R0, x){
+  #Prob(cases >= x)
+  probSSE<-1-sum(dpois(0:x, R0))
+}
+
+SSEpercentile<-function(ptile, R0){
+  #number of cases = zth percentile of Poisson distribution
+x<-qpois(ptile, R0)
+}
+
+### Poisson offspring distribution
+Poissonbranch <- function(n,R0) {  ## Poisson
+  #n = number of generations after generation 0
+	z <- c(1,rep(0,n))
+	#one infected case in generation 0
+	for (i in 2:(n+1)) {
+	  #number of poisson rvs needed per case = z[i-1], then add together to get the number of new infections in that generation
+			z[i] <- sum(rpois(z[i-1],R0))
+			}
+			return(z)
+			}
+			
+Poissonmixturebranch<- function(n,p, R0D, R0A) {  ## Poisson
+	z <- c(1,rep(0,n))
+	#one infected case in generation 0 #rmixture(z[i-1], probs = c(p, 1-p), models = expression(rpois(R0D), rpois(R0A)))
+	for (i in 2:(n+1)) {
+z[i] <- sum(rmixture(z[i-1], probs = c(p, 1-p), models = expression(rpois(R0D), rpois(R0A))))
+			}
+			return(z)
+			}
+			
+clusterPoisson<-function(n, R0){
+  #cluster size after n generations
+  cluster<-sum(Poissonbranch(n,R0))
+}
+
+clusterPoissonmixture<-function(n, p, R0D, R0A){
+  #cluster size after n generations
+  cluster<-sum(Poissonmixturebranch(n,p, R0D, R0A))
+}
+
+Poissonbranchw <- function(R0) {  ## Poisson
+  #n = number of generations after generation 0
+  n<-1
+	z <- c(1,rep(0,n))
+	#one infected case in generation 0
+	#while sum
+	cluster<-sum(z)
+	while(cluster<50){
+	  #number of poisson rvs needed per case = z[i-1], then add together to get the number of new infections in that generation
+	    i<-n+1
+			z[i] <- sum(rpois(z[i-1],R0))
+			cluster<-cluster+z[i]
+      n<-n+1
+      if(z[i]==0){
+        break
+      }
+			}
+			#return(c(z, cluster, n))
+if(cluster<50)
+	{n<-NA}
+	return(n)
+			}
+#Poissonbranchw(4.5)			
+		
+Poissonmixturebranchw<- function(p, R0D, R0A) {  ## Poisson
+  #return the number of generations that it takes to have a cluster greater than 50
+#  params<-as.list(c(R0D=R0D, R0A=R0A))
+  n<-1 
+	z <- c(1,rep(0,n))
+	#one infected case in generation 0 #rmixture(z[i-1], probs = c(p, 1-p), models = expression(rpois(R0D), rpois(R0A)))
+	#one infected case in generation 0
+	#while sum
+	cluster<-sum(z)
+	while(cluster<50){
+	  #number of poisson rvs needed per case = z[i-1], then add together to get the number of new infections in that generation
+	    i<-n+1
+z[i] <- sum(rmixture(z[i-1], probs = c(p, 1-p), models = expression(rpois(R0D), rpois(R0A))))#params$R0D
+		cluster<-cluster+z[i]
+      n<-n+1
+      if(z[i]==0){
+        break
+      }
+			}
+	#		return(c(z, cluster, n)) as a check
+	if(cluster<50)
+	{n<-NA}
+	return(n)
+			}
+				
+
+```
+
+```{r}
+
+R0Aval<-0.5+seq(0.1, 15, 0.1)
+R0<-0.5+0.2*seq(0.1, 15, 0.1)
+index<-which(R0>1)[1]
+prob.extlimit<-uniroot(PoissonMixtureGenLimit, c(0, 0.999),  p=0.8, R0D=0.5)$root
+prob.ext<-numeric(length(R0Aval))
+prob.ext[1:(index)]<-1 #goes extinct if R0 <=1
+for(i in (index):length(R0Aval)){
+ # prob.ext[i]<-uniroot(PoissonGen, c(0, 0.99), R0=R0vals6[i])$root
+  prob.ext[i]<-uniroot(PoissonMixtureGen, c(0, 0.999999999),  p=0.8, R0D=0.5, R0A=R0Aval[i])$root
+}
+
+test_data <-
+  data.frame(
+    limit = 1-prob.extlimit,
+     mixture= 1-prob.ext,
+  R0A = R0Aval)
+  
+
+test_data_long <- melt(test_data, id="R0A")  # convert to long format
+
+p<-ggplot(data=test_data_long,
+       aes(x=R0A, y=value, colour=variable)) +
+    geom_line() +
+  labs(x="Aerosol R0", y="Probability of major epidemic")+
+    scale_color_discrete(name = "Model", labels = c("Limit", "Mixture"))
+#pdf("ProbEpiLimit.pdf")
+#print(p)
+#dev.off()
+```
+
+```{r}
+#R0=4.5
+nsims<-1000 #use while loops
+poissgen2<-numeric(nsims)
+for(i in 1:length(poissgen2)) {
+  poissgen2[i]<-Poissonbranchw(2)
+}
+poissmixgen2<-numeric(nsims)
+R0D<-1.5
+R0A<-4
+for(i in 1:length(poissmixgen2)) poissmixgen2[i]<-Poissonmixturebranchw(0.8, 1.5, 4)
+poissgen3<-numeric(nsims)
+for(i in 1:length(poissgen3)) poissgen3[i]<-Poissonbranchw(3)
+poissmixgen3<-numeric(nsims)
+R0A<-9
+for(i in 1:length(poissmixgen3)) poissmixgen3[i]<-Poissonmixturebranchw(0.8, 1.5, 9)
+poissgen4<-numeric(nsims)
+for(i in 1:length(poissgen4)) poissgen4[i]<-Poissonbranchw(4)
+poissmixgen4<-numeric(nsims)
+R0A<-14
+for(i in 1:length(poissmixgen4)) poissmixgen4[i]<-Poissonmixturebranchw(0.8, 1.5, 14)
+check<-c(length(na.omit(poissgen2)),length(na.omit(poissmixgen2)),length(na.omit(poissgen3)),length(na.omit(poissmixgen3)),length(na.omit(poissgen4)), length(na.omit(poissmixgen4)))
+poissgen2<-na.omit(poissgen2)
+poissmixgen2<-na.omit(poissmixgen2)
+poissgen3<-na.omit(poissgen3)
+poissmixgen3<-na.omit(poissmixgen3)
+poissgen4<-na.omit(poissgen4)
+poissmixgen4<-na.omit(poissmixgen4)
+#R0=2, 2.5, 3, 3.5, 4, 4.5
+```
+
+```{r}
+
+
+nsims2<-round(min(check),digits=-2) #round to the nearest 100
+R0=rep(c("2", "3","4"), each=2*nsims2)
+model=rep(c("baseline","mixture"),each=nsims2)
+gentime<-c(poissgen2[1:nsims2], poissmixgen2[1:nsims2],poissgen3[1:nsims2], poissmixgen3[1:nsims2], poissgen4[1:nsims2], poissmixgen4[1:nsims2])
+data2=data.frame(R0, model ,  gentime)
+ 
+# grouped boxplot
+p<-ggplot(data2, aes(x=R0, y=gentime, fill=model)) + 
+    geom_boxplot()
+p
+ggsave("gentimeR0.pdf", p, height=4, width=5)
+```
+
+
+## Branching process
+The process we consider is as follows:
+\begin{itemize}
+\item Null model: number of cases caused by a single infectious individual over the course of their infectious period: 
+\begin{equation*}
+    X \sim \text{ Poisson} R_0.
+\end{equation*}
+This is a Galton-Watson branching process since individuals infect a mean number $R_0$ of individuals at the end of their infectious period, and the infectious period (generation time) is constant.
+\item Overdispersed/superspreading model: $$X \sim  p \, \text{Poisson} R_0^D + (1-p) \text{Poisson} R_0^A.$$ The number of cases $X$ generated by a single infectious individual over the course of their infectious period is a finite Poisson mixture with $0\leq p \leq 1$.
+\item The model with superspreading assumes a fraction $p$ of cases are caused by direct contact with a known index case, and these cases are assumed to be Poisson distributed with mean $R_0^D$. 
+\item A fraction $1-p$ of cases are caused by aerosol transmission, and these cases are Poisson distributed with mean $R_0^A$. These cases are due to an unknown index case (community transmission).
+\item The expected number of cases of the Poisson mixture is $p R_0^D + (1-p) R_0^A$. We assume the expected number of cases is the same as the expected number of cases from the null model, $R_0$. If $p=0$, then $R_0 = R_0^A$ and if $p=1$ then $R_0 = R_0^D$.
+\item We let $R_0^A = R_0^D + \delta$, where $\delta >0$. Biologically, it makes sense for $R_0^A$ to be greater than $R_0^D$ because on average, someone infected by an unknown source in the community is more likely to infect many people before realizing they are infected, whereas those infected by a known index case may be quicker to self-isolate (limit their contacts) once they become aware of their infection.
+\item The expression for $R_0$ is
+\begin{equation}
+R_0 = R_0^D + (1-p)\delta,
+\end{equation}
+which lies between $R_0^D$ and $R_0^A$ if $0<p<1$.
+\item We will compare the superspreading Poisson mixture model with a null Poisson model with mean $R_0$.
+\end{itemize}
+
+## Probability mass function of the superspreading branching process
+
+\begin{itemize}
+\item The probability mass function that describes the superspreading branching process is a finite Poisson mixture (Johnson and Hoboken, 2005)
+\begin{align*}
+P(X=k) &= \sum_{k=0}^\infty \left ( p \frac{(R_0^D)^k}{k!} e^{-R_0^D}+(1-p)\frac{(R_0^A)^k}{k!}e^{-R_0^A} \right )\\
+&= p \sum_{k=0}^\infty\frac{(R_0^D)^k}{k!} e^{-R_0^D}+(1-p)\sum_{k=0}^\infty\frac{(R_0^A)^k}{k!}e^{-R_0^A}.
+\end{align*}
+\item The proportion of individuals that do not transmit the disease may be obtained from transmission trees (Lloyd Smith et al. 2005). Figure 1 indicates that the proportion of cases that lead to no secondary transmission is greater in the Poisson mixture process than for the Poisson process with the same $R_0$, and it decreases with the proportion of aerosol transmission $1-p$.
+\end{itemize}
+
+
+```{r}
+data<-data.frame(cases=rmixture(1000, probs = c(4, 1), models = expression(rpois(1.5), rpois(16.5))))
+ggplot(data, aes(x=cases)) + 
+    geom_histogram()
+data2<-data.frame(cases=rpois(1000, 4.5))
+combdat<-bind_rows(list(Mixture=data,Baseline=data2),
+                           .id="model")
+ggplot(combdat,aes(cases,fill=model))+
+   scale_fill_manual(values=c("red","blue"))+
+  geom_bar(alpha=0.5) #geom_bar(mapping = aes(x = cut, y = ..prop.., group = 1), stat = "count") for proportions
+```
+
+
+```{r}
+#R0 = 4.5
+data<-data.frame(cases=rmixture(10000, probs = c(0.8, 0.2), models = expression(rpois(1.5), rpois(16.5))))
+data2<-data.frame(cases=rpois(10000, 4.5))
+combdat<-bind_rows(list(Mixture=data,Baseline=data2),
+                           .id="model")
+combdat2<-mutate(combdat, R0=4.5)
+#R0 = 2
+data1<-data.frame(cases=rmixture(10000, probs = c(0.8, 0.2), models = expression(rpois(1.5), rpois(4))))
+data3<-data.frame(cases=rpois(10000, 2))
+combdat3<-bind_rows(list(Mixture=data1,Baseline=data3),
+                           .id="model")
+combdat4<-mutate(combdat3, R0=2)
+#combine together
+combdatf<-bind_rows(combdat2, combdat4)
+
+plot<-ggplot(combdatf,aes(cases,fill=model, y = stat(prop)))+
+   scale_fill_manual(values=c("red","blue"))+
+  geom_bar(alpha=0.5)+
+  facet_wrap(~R0, labeller=label_both)
+ggsave("CaseDistribution.pdf", plot, height=3, width=5)
+```
+
+\textbf{Figure 1.} 
+
+```{r}
+R0D=1.5;
+R0start=1.6;
+R0end=5;
+pseq<-seq(0.6, 0.9, 0.1)
+delta6<-seq((R0start-R0D)/(1-pseq[1]),(R0end-R0D)/(1-pseq[1]), length.out=100)
+delta7<-seq((R0start-R0D)/(1-pseq[2]),(R0end-R0D)/(1-pseq[2]),length.out=100)
+delta8<-seq((R0start-R0D)/(1-pseq[3]),(R0end-R0D)/(1-pseq[3]), length.out=100)
+delta9<-seq((R0start-R0D)/(1-pseq[4]),(R0end-R0D)/(1-pseq[4]), length.out=100)
+R0vals6<-R0D+delta6*(1-pseq[1])
+R0vals7<-R0D+delta7*(1-pseq[2])
+R0vals8<-R0D+delta8*(1-pseq[3])
+R0vals9<-R0D+delta9*(1-pseq[4])
+prop.notinf<-PoissonProportionNotInf(R0vals6)
+prop.notinfp6<-PoissonMixProportionNotInf(p=0.6, R0D=1.5, R0A=R0adel( R0D=1.5, delta=delta6))
+prop.notinfp7<-PoissonMixProportionNotInf(p=0.7, R0D=1.5, R0A=R0adel( R0D=1.5, delta=delta7))
+prop.notinfp8<-PoissonMixProportionNotInf(p=0.8, R0D=1.5, R0A=R0adel( R0D=1.5, delta=delta8))
+prop.notinfp9<-PoissonMixProportionNotInf(p=0.9, R0D=1.5, R0A=R0adel( R0D=1.5, delta=delta9))
+plot(prop.notinf~R0vals6, xlab="R0", ylab="Proportion not infected (P(X=0))", ylim=c(0,0.2))
+points(prop.notinfp6~R0vals6, col="blue")
+points(prop.notinfp7~R0vals7, col="red")
+points(prop.notinfp8~R0vals8, col="cyan")
+points(prop.notinfp9~R0vals9, col="purple")
+legend(4,0.14,c("Baseline", "Aerosol 40%", "Aerosol 30%","Aerosol 20%","Aerosol 10%"), col=c('black', 'blue', 'red', 'cyan', 'purple'), lty=1, bty='n', pch=1)
+```
+
+
+\textbf{Figure 1.} For each value of $R_0$, the mixture models predict that a higher proportion of individuals remain uninfected than the baseline Poisson model, and the proportion decreases with increasing aerosol transmission.
+
+
+
+
+## Probability of extinction of the superspreading branching process when $R_0 > 1$
+
+\begin{itemize}
+\item The probability generating function of the superspreading branching process is the weighted sum of Poisson generating functions (Johnson and Hoboken, 2005)
+\begin{align}\label{eqn:Poissonmixgen}
+G(z) = \sum_{k=0}^\infty P(X=k)z^k &= p \sum_{k=0}^\infty\frac{(R_0^D)^k}{k!} e^{-R_0^D}z^k+(1-p)\sum_{k=0}^\infty\frac{(R_0^A)^k}{k!}e^{-R_0^A}z^k \notag \\ 
+&= p e^{R_0^D(z-1)}+ (1-p) e^{R_0^A(z-1)}
+\end{align}
+It is easy to check that this function satisfies all the requirements of a generating function. 
+\item The probability of the branching process going extinct (probability of a minor outbreak) is given by numerically finding the root $z_\infty$ of the equation
+$$ 
+z = G(z) = p e^{R_0^D(z-1)}+ (1-p) e^{R_0^A(z-1)}.
+$$
+If $R_0<1$, then $z_\infty = 1$, i.e., the probability of a minor outbreak going extinct is certain. If $R_0 > 1$, then $0<z_\infty < 1$. The probability of a major outbreak is $1-z_\infty$. 
+\end{itemize}
+
+
+```{r}
+R0D=1.5
+prob.ext<-numeric(length(R0vals6))
+prob.extp6<-numeric(length(R0vals6))
+prob.extp7<-numeric(length(R0vals7))
+prob.extp8<-numeric(length(R0vals8))
+prob.extp9<-numeric(length(R0vals9))
+for(i in 1:length(R0vals6)){
+  prob.ext[i]<-uniroot(PoissonGen, c(0, 0.99), R0=R0vals6[i])$root
+  prob.extp6[i]<-uniroot(PoissonMixtureGen, c(0, 0.999),  p=0.6, R0D=1.5, R0A=R0adel(R0D=1.5, delta=delta6[i]))$root
+  prob.extp7[i]<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.7, R0D=1.5, R0A=R0adel(R0D=1.5, delta=delta7[i]))$root
+  prob.extp8[i]<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.8, R0D=1.5, R0A=R0adel(R0D=1.5, delta=delta8[i]))$root
+  prob.extp9[i]<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.9, R0D=1.5, R0A=R0adel(R0D=1.5, delta=delta9[i]))$root
+}
+plot(prob.ext~R0vals6, xlab="R0", ylab="Probability of extinction", ylim=c(0,0.4), main ="Probability of extinction of a minor outbreak")
+points(prob.extp6~R0vals6, col="blue")
+points(prob.extp7~R0vals7, col="red")
+points(prob.extp8~R0vals8, col="cyan")
+points(prob.extp9~R0vals9, col="purple")
+legend(1.5,0.15,c("Baseline", "Aerosol 40%", "Aerosol 30%","Aerosol 20%","Aerosol 10%"), col=c('black', 'blue', 'red', 'cyan', 'purple'), lty=1, bty='n', pch=1, cex=0.6)
+```
+
+\textbf{Figure 2.} The probability of extinction for the baseline Poisson model declines as $R_0$ increases. The mixture models have much higher probability of extinction for the same $R_0$ (note here $R_0^D =1.5$.) The probability of extinction increases as the proportion of aerosol transmission decreases.
+
+
+
+
+
+## Variance of the superspreading branching process
+
+\begin{itemize}
+\item The probability generating function can be used to find the mean and variance of the offspring distribution. The expected number of cases is $$G'(1)~=p R_0^D + (1-p) R_0^A ~= R_0.$$  The mean is an increasing function of $R_0^D$ and $R_0^A$. As $R_0^D$ approaches zero from the right, $R_0$ approaches $(1-p)R_0^A$, and as $R_0^A$ approaches $R_0^D$ from the right, $R_0$ approaches $R_0^D$.
+\item The variance of the number of cases is
+\begin{align}\label{eqn:var}
+     V(X) &= G''(1)+ G'(1)-(G'(1))^2 \notag \\  &= p (R_0^D)^2 + (1-p) (R_0^A)^2+ p R_0^D + (1-p) R_0^A - (p R_0^D + (1-p) R_0^A)^2 \notag\\
+     &= p (R_0^D)(1+R_0^D) + (1-p) (R_0^A)(1+R_0^A)- (p R_0^D + (1-p) R_0^A)^2. 
+\end{align}
+ Assuming no direct contact (i.e., $p=0$)  for any value of $R_0^A$ the mixture reduces to a Poisson process with mean $R_0^A$ and  variance is $V(X) = R_0^A$. Assuming no aerosol transmission ($p=1$) for any value of $R_0^D$ the mixture reduces to a Poisson process with mean $R_0^D$ and  variance $R_0^D$. Note that the variance can also be obtained using expectations, $V(X) = E(X^2) - (E(X))^2.$
+\item Letting $R_0^A = R_0^D + \delta$ and $R_0 =   R_0^D + (1-p)\delta$ yields the following expression for the variance,
+\begin{equation}\label{eqn:vardelta}
+V(X) = R_0^D + (1-p)\delta+ p(1-p) \delta^2. 
+\end{equation}
+Clearly, the variance is greater than the mean $R_0$ provided $0<p<1$. 
+\item The second derivative test yields $V_{pp}(X) = -2 \delta^2 <0$ for $\delta >0$ and so the variance has a local maximum. The variance has a local maximum at 
+\begin{equation}\label{eqn:maxvar}
+p = \frac{1}{2}\left (1-\frac{1}{\delta}\right),
+\end{equation}
+which is positive if $\delta > 1$ and approaches $1/2$ as $\delta \rightarrow \infty$ (i.e., as $R_0^A$ gets increasingly large.) If $0<\delta<1$, then the local maximum occurs for negative $p$ and therefore the variance is a decreasing function of $p$ (an increasing function of the proportion of aerosol transmission). If $\delta>1$ then the variance is non-monotonic on the interval $0<p<1$.
+\item The variance is a concave-up function of $\delta$, with local minimum at $\delta = -1/2p$, and therefore the variance is a increasing function of $\delta$ on the interval $0\leq p \leq 1$. Therefore the variance is an increasing function of $R_0^A$.
+\item The skewness of the offspring distribution is
+\begin{equation}\label{eqn:skew}
+S(X)=\frac{R_0^D+(1-p)\delta + 3p(1-p)\delta^2 + p(1-p)(2p-1)\delta^3}{V(X)^{3/2}}
+\end{equation}
+\end{itemize}
+
+```{r}
+pval<-seq(0, 1, 0.01)
+aerosol<-1-pval
+R0p1<-R0(pval, R0D=1.5, R0adel(R0D=1.5, delta=1))
+R0p2<-R0(pval, R0D=1.5, R0adel(R0D=1.5, delta=2))
+R0p3<-R0(pval, R0D=1.5, R0adel(R0D=1.5, delta=4))
+R0p4<-R0(pval, R0D=1.5, R0adel(R0D=1.5, delta=8))
+R0a1<-R0adel(R0D=1.5, delta=1)
+R0a2<-R0adel(R0D=1.5, delta=2)
+R0a3<-R0adel(R0D=1.5, delta=4)
+R0a4<-R0adel(R0D=1.5, delta=8)
+v1<-varoffspringdel(p=pval, R0D=1.5, R0A=R0a1)
+v2<-varoffspringdel(p=pval, R0D=1.5, R0A=R0a2)
+v3<-varoffspringdel(p=pval, R0D=1.5, R0A=R0a3)
+v4<-varoffspringdel(p=pval, R0D=1.5, R0A=R0a4)
+#plot(rev((v4/R0p4))~(1-pval), type='l', col='purple', xlab="Fraction aerosol (1-p)", ylab="Variance to mean ratio")
+#lines(rev((v3/R0p3))~(1-pval), type='l', col='cyan')
+#lines(rev((v2/R0p2))~(1-pval), type='l', col='red')
+#lines(rev((v1/R0p1))~(1-pval), type='l', col='blue')
+plot((v4/R0p4)~aerosol, type='l', col='purple', xlab="Proportion of aerosol transmission (1-p)", ylab="Variance to mean ratio")
+lines((v3/R0p3)~aerosol, type='l', col='cyan')
+lines((v2/R0p2)~aerosol, type='l', col='red')
+lines((v1/R0p1)~aerosol, type='l', col='blue')
+abline(h=1)
+legend(0.75,4.5,c("R0A=9.5", "R0A=5.5", "R0A=3.5", "R0A=2.5","Baseline "), col=c('purple', 'cyan', 'red', 'blue', 'black'), lty=1, bty='n', cex=0.75)
+```
+\textbf{Figure 3.} The variance to mean ratio of the offspring distribution is a non-monotonic function of the proportion of aerosol transmission, and is at its highest for low to moderate levels of aerosol transmission. The Poisson mixture models are overdispersed for $0<p<1$.
+
+```{r}
+pval<-seq(0, 1, 0.01)
+R0p1<-R0(pval, R0D=1.5, R0adel(R0D=1.5, delta=1))
+R0p2<-R0(pval, R0D=1.5, R0adel(R0D=1.5, delta=2))
+R0p3<-R0(pval, R0D=1.5, R0adel(R0D=1.5, delta=4))
+R0p4<-R0(pval, R0D=1.5, R0adel(R0D=1.5, delta=8))
+R0a1<-R0adel(R0D=1.5, delta=1)
+R0a2<-R0adel(R0D=1.5, delta=2)
+R0a3<-R0adel(R0D=1.5, delta=4)
+R0a4<-R0adel(R0D=1.5, delta=8)
+v1<-varoffspringdel(p=pval, R0D=1.5, R0A=R0a1)
+v2<-varoffspringdel(p=pval, R0D=1.5, R0A=R0a2)
+v3<-varoffspringdel(p=pval, R0D=1.5, R0A=R0a3)
+v4<-varoffspringdel(p=pval, R0D=1.5, R0A=R0a4)
+plot((v4/R0p4)~R0p4, type='l', col='purple', xlab="R0", ylab="Variance to mean ratio")
+lines((v3/R0p3)~R0p3, type='l', col='cyan')
+lines((v2/R0p2)~R0p2, type='l', col='red')
+lines((v1/R0p1)~R0p1, type='l', col='blue')
+abline(h=1)
+legend(7,4.5,c("R0A=9.5", "R0A=5.5", "R0A=3.5", "R0A=1.5","Baseline "), col=c('purple', 'cyan', 'red', 'blue', 'black'), lty=1, bty='n', cex=0.75)
+```
+\textbf{Figure 4.} The variance to mean ratio of the offspring distribution is a non-monotonic function of $R_0$, and is larger for larger values of $R_0^A$.
+
+
+```{r}
+R0D<-1.5;
+R0start<-1.6;
+R0end<-10;
+pseq<-seq(0.7, 0.9, 0.1)
+delta7<-seq((R0start-R0D)/(1-pseq[1]),(R0end-R0D)/(1-pseq[1]),length.out=100)
+delta8<-seq((R0start-R0D)/(1-pseq[2]),(R0end-R0D)/(1-pseq[2]), length.out=100)
+delta9<-seq((R0start-R0D)/(1-pseq[3]),(R0end-R0D)/(1-pseq[3]), length.out=100)
+#these are all the same
+R0vals7<-R0D+delta7*(1-pseq[1])
+R0vals8<-R0D+delta8*(1-pseq[2])
+R0vals9<-R0D+delta9*(1-pseq[3])
+R0Avals7<-R0D+delta7
+R0Avals8<-R0D+delta8
+R0Avals9<-R0D+delta9
+
+sse7<-numeric(length(R0Avals7))
+sse8<-numeric(length(R0Avals8))
+sse9<-numeric(length(R0Avals9))
+for (i in 1:length(R0Avals7)) {
+  sse7[i]<-probSSE(0.7, R0D, R0Avals7[i], SSEpercentile(ptile=0.99, R0=R0(0.7, R0D, R0Avals7[i])))
+  sse8[i]<-probSSE(0.8, R0D, R0Avals8[i], SSEpercentile(ptile=0.99, R0=R0(0.8, R0D, R0Avals8[i])))
+  sse9[i]<-probSSE(0.9, R0D, R0Avals9[i], SSEpercentile(ptile=0.99, R0=R0(0.9, R0D, R0Avals9[i])))
+}
+plot(sse7~R0vals7, type='o', col='red',xlab="R0", ylab="Probability of SSE")
+points(sse8~R0vals8, col='blue', type='l', pch=19)
+points(sse9~R0vals9, col='purple',type='l', pch=19)
+abline(h=0.01)
+legend(2, 0.3, c("Aerosol 30%","Aerosol 20%","Aerosol 10%", "baseline"), col=c('red', 'blue','purple','black'), lty=1, bty='n', pch=1)
+```
+\textbf{Figure 5.} The probability of a superspreading event (the probability that the number of cases generated by a given Poisson mixture offspring distribution is greater than the 99th percentile of the baseline Poisson model with the same $R_0$) is an increasing function of $R_0$ and saturates to $1-p$ for large $R_0$. 
+
+```{r}
+R0D<-1.5
+delta<-seq(1, 30, 0.5)
+R0Avals<-R0adel(R0D, delta)
+sse7<-numeric(length(R0Avals))
+sse8<-numeric(length(R0Avals))
+sse9<-numeric(length(R0Avals))
+for (i in 1:length(delta)) {
+  sse7[i]<-probSSE(0.7, R0D, R0Avals[i], SSEpercentile(ptile=0.99, R0=R0(0.7, R0D, R0Avals[i])))
+  sse8[i]<-probSSE(0.8, R0D, R0Avals[i], SSEpercentile(ptile=0.99, R0=R0(0.8, R0D, R0Avals[i])))
+  sse9[i]<-probSSE(0.9, R0D, R0Avals[i], SSEpercentile(ptile=0.99, R0=R0(0.9, R0D, R0Avals[i])))
+}
+pdf(file="sse.pdf",width=5, height=3)
+plot(sse7~R0Avals, type='o', col='red',xlab="R0A", ylab="Probability of SSE")
+points(sse8~R0Avals, col='blue')
+points(sse9~R0Avals, col='purple')
+abline(h=0.01)
+legend(2, 0.3, c("Aerosol 30%","Aerosol 20%","Aerosol 10%", "baseline"), col=c('red', 'blue','purple','black'), lty=1, bty='n', pch=1, cex=0.5)
+dev.off()
+```
+\textbf{Figure 6.} The probability of a superspreading event is an increasing function of aerosol reproduction number $R_0^A$ and saturates to $1-p$ for large $R_0^A$.
+
+```{r}
+data<-data.frame(cases=rmixture(1000, probs = c(4, 1), models = expression(rpois(1.5), rpois(16.5))))
+p <- ggplot(data, aes(x=cases))  +
+   geom_histogram()
+p
+```
+
+
+## Chain size distribution statistics
+
+\begin{itemize}
+\item We define a chain that goes extinct at time $t$ by
+$$
+Y = \sum_{i=0}^{t-1}x_i
+$$
+with $x_i$ denoting the cumulative number of offspring in the $i^{th}$ generation, and $x_0 = 1$. 
+\item The final size $Y$ upon extinction is a random variable with probability distribution $P(Y=y)$, $y=1,2,...$. We need to distinguish between when $R_0 < 1$ and $R_0 > 1$. 
+\item From Yan (2008) we note that 
+\begin{align*}
+\sum_{y=1}^{\infty}P(Y=y) &= z_\infty,  \\  z_\infty &= \begin{cases}= 1 \text{ if } R_0 \leq 1 \\ < 1 \text{ if } R_0 >   1\end{cases}\end{align*}
+\item Following Yan (2008) let $Q_Y(z) = \sum_{y=1}^{\infty}z^y P(Y=y)$. Finding the first and second derivatives of this function allows us to compute the mean and variance of the final size conditioned on extinction (chain size conditioned on a minor outbreak).
+\item Using $Q_Y(z)=z G(Q_Y(z))$ (Mode and Sleeman 2000), the first and second derivatives of $Q_Y(z)$ are (Yan 2008)
+\begin{align}\label{eqn:Qderiv}
+Q_Y'(z) &= G(Q_Y(z))+ z G'(Q_Y(z))Q_Y'(z),\\
+Q_Y''(z) &= 2 G'(Q_Y(z))Q_Y'(z)+ z (G''(Q_Y(z))(Q_Y'(z))^2 + G'(Q_Y(z))Q_Y''(z)).
+\end{align}
+\item If $R_0 < 1$, then 
+$$
+E(Y) = Q_Y'(1) = \frac{1}{1-R_0},
+$$
+which is valid for any distribution of $X$.
+\item To compute the variance assuming $R_0 <1$, we use $V(Y) = Q_Y''(1)+ Q_Y'(1)- (Q_Y'(1))^2$,
+$$
+V(Y) = \frac{V(X)}{(1-R_0)^3}
+$$
+\item If $R_0 > 1$, then $0 < z_\infty < 1$ and we compute $R_0^* = G'(z_\infty) < 1$, i.e., the basic reproduction number conditioned on extinction of the chain. Then we can calculate the mean and variance of the chain size conditioned on a minor outbreak occurring (Yan 2008),
+\begin{align*}
+E(Y|\text{minor outbreak}) &= \frac{1}{1-R_0^*} \\
+V(Y|\text{minor outbreak}) &= \frac{z_\infty Q_Y''(z_\infty)+R_0^{*}(1-R_0^*)}{(1-R_0^*)^3}
+\end{align*}
+\item As $R_0$ increases, the probability of a minor outbreak $z_\infty$ declines. Therefore $R_0^*$ declines with $R_0$, and so the mean chain size will also decline (Figure 8.) For example, for the baseline Poisson model, $R_0^*= G'(z_\infty) = R_0 e^{(R_0(z_\infty -1 ))}$, which decreases as $z_\infty$ decreases.
+\item There are also results for final size conditioned on a major outbreak occurring (Yan 2008), not included here.
+\end{itemize}
+
+
+```{r}
+R0D=1.5;
+pval<-seq(0.01, 0.99, 0.01)
+aerosol<-1-pval
+R0p1<-R0(pval, R0D=1.5, R0adel(R0D=1.5, delta=1))
+R0p2<-R0(pval, R0D=1.5, R0adel(R0D=1.5, delta=2))
+R0p3<-R0(pval, R0D=1.5, R0adel(R0D=1.5, delta=4))
+R0p4<-R0(pval, R0D=1.5, R0adel(R0D=1.5, delta=8))
+R0a1<-R0adel(R0D=1.5, delta=1)
+R0a2<-R0adel(R0D=1.5, delta=2)
+R0a3<-R0adel(R0D=1.5, delta=4)
+R0a4<-R0adel(R0D=1.5, delta=8)
+
+R0starMixP6<-numeric(length(pval))
+R0starMixP7<-numeric(length(pval))
+R0starMixP8<-numeric(length(pval))
+R0starMixP9<-numeric(length(pval))
+
+for(i in 1:length(pval)) {
+  R0starMixP6[i]<-PoissonMixR0star(p=pval[i], R0D=1.5, R0A=R0a1)
+  R0starMixP7[i]<-PoissonMixR0star(p=pval[i], R0D=1.5, R0A=R0a2)
+ R0starMixP8[i]<-PoissonMixR0star(p=pval[i], R0D=1.5, R0A=R0a3)
+ R0starMixP9[i]<-PoissonMixR0star(p=pval[i], R0D=1.5, R0A=R0a4)
+}
+  
+plot(mean.chain(R0starMixP6)~aerosol,type='o', ylim=c(0.5,2.7), xlab="Proportion of aerosol transmission (1-p)", ylab='Mean chain size',col='black')
+points(mean.chain(R0starMixP7)~aerosol, col='blue')
+points(mean.chain(R0starMixP8)~aerosol, col='cyan')
+points(mean.chain(R0starMixP9)~aerosol, col='purple')
+legend(0.65,2.6,c( "R0A=2.5", "R0A=3.5", "R0A=5.5", "R0A=9.5"), col=c('black',  'blue', 'cyan', 'purple'), lty=1, bty='n', pch=19, cex=0.75)
+```
+
+
+\textbf{Figure 7.} The mean chain size decreases with increasing proportion of aerosol transmission. 
+
+
+
+
+
+```{r}
+R0D<-1.5;
+R0start<-1.6;
+R0end<-10;
+pseq<-seq(0.7, 0.9, 0.1)
+delta7<-seq((R0start-R0D)/(1-pseq[1]),(R0end-R0D)/(1-pseq[1]),length.out=100)
+delta8<-seq((R0start-R0D)/(1-pseq[2]),(R0end-R0D)/(1-pseq[2]), length.out=100)
+delta9<-seq((R0start-R0D)/(1-pseq[3]),(R0end-R0D)/(1-pseq[3]), length.out=100)
+#these are all the same
+R0vals7<-R0D+delta7*(1-pseq[1])
+R0vals8<-R0D+delta8*(1-pseq[2])
+R0vals9<-R0D+delta9*(1-pseq[3])
+R0Avals7<-R0D+delta7
+R0Avals8<-R0D+delta8
+R0Avals9<-R0D+delta9
+
+varPoisson<-numeric(length(R0vals7))
+#varPMixp6<-numeric(length(R0vals7))
+varPMixp7<-numeric(length(R0vals7))
+varPMixp8<-numeric(length(R0vals7))
+varPMixp9<-numeric(length(R0vals7))
+
+
+for(i in 1:length(R0vals7)){
+varPoisson[i]<-variance.chainPoisson(R0vals7[i])
+varPMixp7[i]<-variance.chainPoissonMix(p=0.7, R0D=R0D, R0A=R0Avals7[i])
+varPMixp8[i]<-variance.chainPoissonMix(p=0.8, R0D=R0D, R0A=R0Avals8[i])
+varPMixp9[i]<-variance.chainPoissonMix(p=0.9, R0D=R0D, R0A=R0Avals9[i])
+}
+
+R0starMixP7<-numeric(length(R0vals7))
+R0starMixP8<-numeric(length(R0vals7))
+R0starMixP9<-numeric(length(R0vals7))
+R0starP<-numeric(length(R0vals7))
+
+for(i in 1:length(R0vals7)) {
+ # R0starMixP6[i]<-PoissonMixR0star(p=pval[i], R0D=1.5, R0A=R0a1)
+  R0starP[i]<-PoissonR0star(R0=R0vals7[i])
+  R0starMixP7[i]<-PoissonMixR0star(p=0.7, R0D=1.5, R0A=R0Avals7[i])
+ R0starMixP8[i]<-PoissonMixR0star(p=0.8, R0D=1.5, R0A=R0Avals8[i])
+ R0starMixP9[i]<-PoissonMixR0star(p=0.9, R0D=1.5, R0A=R0Avals9[i])
+}
+
+meanPoisson<-mean.chain(R0starP)
+meanP7<-mean.chain(R0starMixP7)
+meanP8<-mean.chain(R0starMixP8)
+meanP9<-mean.chain(R0starMixP9)
+pdf(file="meanchain.pdf",width=5, height=4)
+plot(meanPoisson~R0vals6,type='o',  xlab="R0", ylab='Mean chain size', col='black', ylim=c(0,3.25))
+#points(varPMixp6/mean.chain(R0starMixP6)~R0vals, col='red')
+points(meanP7~R0vals7, col='blue')
+points(meanP8~R0vals8, col='cyan')
+points(meanP9~R0vals9, col='purple')
+legend(3.5,3.5,c( "Baseline Poisson", "Aerosol=30%", "Aerosol=20%", "Aerosol=10%"), col=c('black', 'blue', 'cyan', 'purple'), lty=1, bty='n', cex=0.75)
+dev.off()
+```
+\textbf{Figure 8.} The mean chain size decreases with increasing $R_0$. This is because the probability of a major epidemic increases with $R_0$ (less likely to have a transmission chain that does not result in a major epidemic).
+
+
+
+
+```{r}
+R0D=1.5;
+R0start=1.6;
+R0end=5;
+pseq<-seq(0.7, 0.9, 0.1)
+delta7<-seq((R0start-R0D)/(1-pseq[1]),(R0end-R0D)/(1-pseq[1]),length.out=100)
+delta8<-seq((R0start-R0D)/(1-pseq[2]),(R0end-R0D)/(1-pseq[2]), length.out=100)
+delta9<-seq((R0start-R0D)/(1-pseq[3]),(R0end-R0D)/(1-pseq[3]), length.out=100)
+#these are all the same
+R0vals7<-R0D+delta7*(1-pseq[1])
+R0vals8<-R0D+delta8*(1-pseq[2])
+R0vals9<-R0D+delta9*(1-pseq[3])
+R0Avals7<-R0D+delta7
+R0Avals8<-R0D+delta8
+R0Avals9<-R0D+delta9
+prob.epi<-numeric(length(R0Avals7))
+prob.epi7<-numeric(length(R0Avals7))
+prob.epi8<-numeric(length(R0Avals8))
+prob.epi9<-numeric(length(R0Avals9))
+for(i in 1:length(R0Avals7)){
+  prob.epi[i]<-1-uniroot(PoissonGen, c(0, 0.9), R0=R0vals7[i])$root
+  prob.epi7[i]<-1-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.7, R0D=R0D, R0A=R0Avals7[i])$root
+  prob.epi8[i]<-1-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.8, R0D=R0D, R0A=R0Avals8[i])$root
+  prob.epi9[i]<-1-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.9, R0D=R0D, R0A=R0Avals9[i])$root
+}
+plot(prob.epi7~R0vals7, type='o', col='red', ylim=c(0.6,1), xlab="R0", ylab="Probability of major epidemic")
+lines(prob.epi8~R0vals8, col='blue')
+lines(prob.epi9~R0vals9, col='purple')
+lines(prob.epi~R0vals7, col='black')
+legend(3.5, 0.98, c("Aerosol 30%","Aerosol 20%","Aerosol 10%", "Baseline"), col=c('red', 'blue','purple', 'black'), lty=1, bty='n', pch=1)
+```
+\textbf{Figure 9.} The probability of a major epidemic increases with $R_0$ (less likely to have a transmission chain that does not result in a major epidemic). T
+
+```{r}
+R0D<-1.5
+delta<-seq(0.5, 30, 0.5)
+R0Avals<-R0adel(R0D, delta)
+prob.epi7<-numeric(length(R0Avals))
+prob.epi8<-numeric(length(R0Avals))
+prob.epi9<-numeric(length(R0Avals))
+for(i in 1:length(R0Avals)){
+  #prob.ext[i]<-uniroot(PoissonGen, c(0, 0.9), R0=R0vals[i])$root
+  prob.epi7[i]<-1-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.7, R0D=R0D, R0A=R0Avals[i])$root
+  prob.epi8[i]<-1-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.8, R0D=R0D, R0A=R0Avals[i])$root
+  prob.epi9[i]<-1-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.9, R0D=R0D, R0A=R0Avals[i])$root
+}
+plot(prob.epi7~R0Avals, type='o', col='red', ylim=c(0.6,0.8), xlab="R0A", ylab="Probability of major epidemic")
+lines(prob.epi8~R0Avals, col='blue')
+lines(prob.epi9~R0Avals, col='purple')
+legend(20, 0.675, c("Aerosol 30%","Aerosol 20%","Aerosol 10%"), col=c('red', 'blue','purple'), lty=1, bty='n', pch=1)
+```
+\textbf{Figure 10.} The probability of a major epidemic increases with $R_0^A$ (less likely to have a transmission chain that does not result in a major epidemic).
+
+```{r}
+plot(varPoisson/meanPoisson~R0vals6,type='o',  xlab="R0", ylab='Variance to mean ratio', col='black', ylim=c(0,3.25))
+#points(varPMixp6/mean.chain(R0starMixP6)~R0vals, col='red')
+points(varPMixp7/meanP7~R0vals7, col='blue')
+points(varPMixp8/meanP8~R0vals8, col='cyan')
+points(varPMixp9/meanP9~R0vals9, col='purple')
+legend(4,3,c( "Baseline Poisson", "Aerosol = 30%", "Aerosol = 20%", "Aerosol = 10%"), col=c('black', 'blue', 'cyan', 'purple'), lty=1, bty='n', cex=0.75)
+```
+\textbf{Figure 11.} The variance to mean ratio of the chain size declines as a function of $R_0$. The level of heterogeneity (overdispersion) decreases as $R_0$ increases.
+
+
+```{r}
+R0D=1.5;
+pval<-seq(0.01, 0.99, 0.01)
+aerosol<-1-pval
+
+R0a1<-R0adel(R0D=1.5, delta=1)
+R0a2<-R0adel(R0D=1.5, delta=2)
+R0a3<-R0adel(R0D=1.5, delta=4)
+R0a4<-R0adel(R0D=1.5, delta=8)
+
+R0starMixP6<-numeric(length(pval))
+R0starMixP7<-numeric(length(pval))
+R0starMixP8<-numeric(length(pval))
+R0starMixP9<-numeric(length(pval))
+
+for(i in 1:length(pval)) {
+  R0starMixP6[i]<-PoissonMixR0star(p=pval[i], R0D=1.5, R0A=R0a1)
+  R0starMixP7[i]<-PoissonMixR0star(p=pval[i], R0D=1.5, R0A=R0a2)
+ R0starMixP8[i]<-PoissonMixR0star(p=pval[i], R0D=1.5, R0A=R0a3)
+ R0starMixP9[i]<-PoissonMixR0star(p=pval[i], R0D=1.5, R0A=R0a4)
+}
+
+varMixR01<-numeric(length(pval))
+varMixR02<-numeric(length(pval))
+varMixR04<-numeric(length(pval))
+varMixR08<-numeric(length(pval))
+R0D=1.5
+for(i in 1:length(pval)){
+varMixR01[i]<-variance.chainPoissonMix(p=pval[i], R0D=R0D, R0A=R0a1)
+varMixR02[i]<-variance.chainPoissonMix(p=pval[i], R0D=R0D, R0A=R0a2)
+varMixR04[i]<-variance.chainPoissonMix(p=pval[i], R0D=R0D, R0A=R0a3)
+varMixR08[i]<-variance.chainPoissonMix(p=pval[i], R0D=R0D, R0A=R0a4)
+}
+
+meanMixR01<-mean.chain(R0starMixP6)
+meanMixR02<-mean.chain(R0starMixP7)
+meanMixR04<-mean.chain(R0starMixP8)
+meanMixR08<-mean.chain(R0starMixP9)
+
+vmR01<-varMixR01/meanMixR01
+vmR02<-varMixR02/meanMixR02
+vmR04<-varMixR04/meanMixR04
+vmR08<-varMixR08/meanMixR08
+
+  
+plot(vmR01~aerosol,type='o', ylim=c(0,5), xlab="Proportion of aerosol transmission (1-p)", ylab='Variance to Mean chain size',col='black')
+points(vmR02~aerosol, col='blue')
+points(vmR04~aerosol, col='cyan')
+points(vmR08~aerosol, col='purple')
+legend(0.65,4,c( "R0A=2.5", "R0A=3.5", "R0A=5.5", "R0A=9.5"), col=c('black',  'blue', 'cyan', 'purple'), lty=1, bty='n', pch=19, cex=0.75)
+```
+\textbf{Figure 12.} The variance to mean ratio of the chain size declines as a function of the level of aerosol transmission because the probability of a major epidemic increases as a function of the level of aerosol transmission.
+
+
+
+```{r}
+#for delta = 1, R0 falls below 1 if p > 0.5
+pval<-seq(0.01, 0.99, by=0.01)
+aerosol<-1-pval
+prob.extR015<-numeric(length(pval))
+prob.extR02<-numeric(length(pval))
+prob.extR03<-numeric(length(pval))
+for(i in 1:length(pval)){
+  prob.extR015[i]<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=pval[i], R0D=1.5, R0A=R0adel(R0D=1.5, delta=1))$root
+  prob.extR02[i]<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=pval[i], R0D=1.5, R0A=R0adel(R0D=1.5, delta=2))$root
+  prob.extR03[i]<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=pval[i], R0D=1.5, R0A=R0adel(R0D=1.5, delta=4))$root
+}
+plot(1-prob.extR015~aerosol, xlab="Proportion of aerosol transmission (1-p) ", ylab="Probability of major epidemic", col='black', ylim=c(0.5,1))
+
+points(1-prob.extR02~aerosol, col='blue')
+points(1-prob.extR03~aerosol, col='red')
+legend(0.8,0.7,c("R0A=2.5", "R0A=3.5", "R0A=5.5"), col=c('black', 'blue', 'red'), lty=1, bty='n', cex=0.8)
+```
+
+\textbf{Figure 13.} The probability of a major epidemic increases as a function of the level of aerosol transmission.
+
+
+## Derivation of chain size distribution
+
+
+```{r}
+#simulated cluster sizes for the Poisson distribution:
+clusterP<-numeric(100000)
+for(i in 1:length(clusterP) )clusterP[i]<-clusterPoisson(10, R0=2)
+clusterP<-data.frame(clusters=clusterP)
+clusterP2<-clusterP%>%filter(clusters<11)
+
+#simulated cluster sizes for the Poisson mixture distribution:
+clusterM<-numeric(100000)
+for(i in 1:length(clusterM) )clusterM[i]<-clusterPoissonmixture(6, p=0.8, R0D=1.5, R0A=4)
+clusterM<-data.frame(clusters=clusterM)
+clusterM2<-clusterM%>%filter(clusters<11)
+dim(clusterM2) #use to obtain the proportion that have gone extinct
+
+extprob1<-uniroot(PoissonGen, c(0, 0.99), R0=2)$root
+extprobM<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.8, R0D=1.5, R0A=4)$root
+
+#generate the cluster distriubiton for the mixture distribution
+p2<-0.8
+R0D2<-1.5
+R0A2<-4
+
+nend<-10#power ie (a+b)^n
+csize32<-numeric(nend-2)
+for(n in 3:nend){
+nvec<-1:(n-1)
+gvec<-gN(nvec, p2, R0D, R0A2) #need n-1 g derivatives
+
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+#the for loop should work for chain sizes greater than 2
+x1<-fNr(n, 1, p2, R0D, R0A2)*BellB(n-1,1,gvec)
+for(k in 2:(n-1)) x1<-x1+fNr(n, k, p2, R0D, R0A2)*BellB(n-1,k,head(gvec,-(k-1)))
+
+#vector of P(chain size = n)
+csize32[n-2]<-x1/factorial(n)
+rm(x1)
+}
+csize12<-p2*exp(-R0D)+(1-p2)*exp(-R0A2)
+csize22<-fNr(2, 1, p2, R0D, R0A2)*gN(1,p2,R0D, R0A2)/2
+#compute chain size distribution
+csize2<-c(csize12, csize22, csize32)
+#cluster sizes conditional on extinction
+clusterthM<-data.frame(n=1:10, p=csize2/extprobM) 
+
+
+plot<-ggplot() + 
+  geom_bar(data = clusterM2, aes(x = clusters, y = stat(prop))) + 
+  geom_point(data = clusterthM, aes(x=n, y=p))+
+  geom_line(data = clusterthM, aes(x=n, y=p))
+
+ggsave("clustersize.pdf", plot, width=5, height=4)
+
+#Compare with Borel distribution
+clusterth<-data.frame(n=1:10, p=PoissonChain(n=1:10,R0=2)/extprob1)
+
+ggplot() + 
+  geom_bar(data = clusterP2, aes(x = clusters, y = stat(prop))) + 
+  geom_point(data = clusterth, aes(x=n, y=p))+
+  geom_line(data = clusterth, aes(x=n, y=p))
+```
+
+\begin{itemize}
+\item We will compare the chain size distribution for the Poisson mixture with the chain size distribution obtained from a Poisson offspring distribution. Chain sizes arising from a Poisson branching process follow the Borel-Tanner distribution (Mode and Sleeman 2000) conditioned on a minor outbreak (Yan 2008),
+\begin{equation}
+    P(Y = y) = \frac{1}{z_\infty}\frac{e^{-R_0 y }(R_0 y)^{y-1}}{y!}
+\end{equation}
+where $z_\infty $ is the probability of extinction of a Poisson branching process, which is not equal to one when $R_0>1.$
+\item The chain size distribution can be used to find the probability of the size of a chain exceeding the $n$th percentile, a measure of superspreading (Lloyd Smith et al. 2005),
+\begin{equation}
+    \psi_n = P(Y>y_n)=  1 - P(Y \leq y_n).
+\end{equation}
+\item To derive the chain size distribution for the Poisson mixture, we use the result from Blumberg and Lloyd-Smith (2014) and therefore require the derivatives of powers of the generating function \eqref{eqn:Poissonmixgen}. Let $$T_y(z) = \frac{1}{y} (Q_Y(z))^y, \quad y = 1, 2, \dots $$ Then the probability of a chain having size $y$ is
+\begin{equation}
+    P(Y = y)  = \frac{1}{(y-1)!}T_y^{(y-1)} \Bigr|_{z=0} 
+\end{equation}
+\item To evaluate the derivatives of 
+\begin{equation}\label{eqn:Qy}
+    (Q_Y(z))^y = (p e^{R_0^D(z-1)}+ (1-p) e^{R_0^A(z-1)})^y,
+\end{equation}
+i.e., the $y$th power of the generating function \eqref{eqn:Poissonmixgen}, we need to apply the chain rule $y-1$ times. The $k$th derivative of the inner function of equation \eqref{eqn:Qy} evaluated at $z=0$ is
+\begin{equation}
+    g_k =  p (R_0^D )^k e^{-R_0^D}+ (1-p)(R_0^A )^k e^{-R_0^A} , \quad k = 1, 2, \dots, y-1.
+\end{equation}
+The $k$th derivative of the outer function of equation \eqref{eqn:Qy} evaluated at $z=0$ is
+\begin{equation}
+    f_k =  \frac{y!}{(y-k)! }\left (p e^{-R_0^D}+ (1-p) e^{-R_0^A} \right )^{y-k}, \quad k = 1, 2, \dots, y-1.
+\end{equation}
+The generalized chain rule or Faa di Bruno's formula (citation) yields
+\begin{equation}
+  T_y^{(y-1)} \Bigr|_{z=0} = \sum_{k=1}^{y-1}  f_k B_{y,k}(g_1, g_2, \dots, g_{y-1-k})
+\end{equation}
+where $B_{y,k}$ are Bell polynomials of the $g_k$.
+\end{itemize}
+
+```{r}
+#BellB(4, 3, c(gN(1), gN(2)))
+
+#make the g vector
+p<-0.8
+R0D<-1.5
+R0A<-16.5
+
+nend<-10#power ie (a+b)^n
+csize3<-numeric(nend-2)
+for(n in 3:nend){
+nvec<-1:(n-1)
+gvec<-gN(nvec, p, R0D, R0A) #need n-1 g derivatives
+
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+#the for loop should work for chain sizes greater than 2
+x1<-fNr(n, 1, p, R0D, R0A)*BellB(n-1,1,gvec)
+for(k in 2:(n-1)) x1<-x1+fNr(n, k, p, R0D, R0A)*BellB(n-1,k,head(gvec,-(k-1)))
+
+#vector of P(chain size = n)
+csize3[n-2]<-x1/factorial(n)
+rm(x1)
+}
+csize1<-p*exp(-R0D)+(1-p)*exp(-R0A)
+csize2<-fNr(2, 1, p, R0D, R0A)*gN(1,p,R0D, R0A)/2
+#compute chain size distribution
+csize<-c(csize1, csize2, csize3)
+#Compare with Borel distribution
+```
+
+
+```{r}
+#BellB(4, 3, c(gN(1), gN(2)))
+
+#make the g vector
+p2<-0.7
+R0D2<-1.5
+R0A2<-11.5
+
+nend<-10#power ie (a+b)^n
+csize32<-numeric(nend-2)
+for(n in 3:nend){
+nvec<-1:(n-1)
+gvec<-gN(nvec, p2, R0D, R0A2) #need n-1 g derivatives
+
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+#the for loop should work for chain sizes greater than 2
+x1<-fNr(n, 1, p2, R0D, R0A2)*BellB(n-1,1,gvec)
+for(k in 2:(n-1)) x1<-x1+fNr(n, k, p2, R0D, R0A2)*BellB(n-1,k,head(gvec,-(k-1)))
+
+#vector of P(chain size = n)
+csize32[n-2]<-x1/factorial(n)
+rm(x1)
+}
+csize12<-p2*exp(-R0D)+(1-p2)*exp(-R0A2)
+csize22<-fNr(2, 1, p2, R0D, R0A2)*gN(1,p2,R0D, R0A2)/2
+#compute chain size distribution
+csize2<-c(csize12, csize22, csize32)
+#Compare with Borel distribution
+```
+
+```{r}
+extprob<-uniroot(PoissonGen, c(0, 0.99), R0=R0(0.8, 1.5, 16.5))$root
+extprobmix<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.8, R0D=1.5, R0A=16.5)$root
+extprobmix2<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.7, R0D=1.5, R0A=11.5)$root
+nval<-(1:nend)
+plot((csize/extprobmix)~nval, type='o', xlab="Chain size y", ylab="P(Y=y)", ylim=c(0,1), pch =19)
+lines(csize2/extprobmix2~nval, col='blue', type='o', pch=19)
+lines(PoissonChain(nval,R0D+(1-p)*15)/extprob, col='red', type='o', pch=19)
+legend(4,0.8,c( "R0=4.5, R0A=16.5, Aerosol 20%", "R0=4.5, R0A=11.5, Aerosol 30%","Poisson R0=4.5"), col=c('black',  'blue', 'red'), lty=1, bty='n', pch=19, cex=0.9)
+```
+\textbf{Figure 14.} Chain size distributions conditional on extinction for a Poisson mixture are more fat-tailed  than the corresponding Poisson distribution with the same mean ($R_0 = 4.5$). Here $R_0^D = 1.5$. 
+
+```{r}
+#BellB(4, 3, c(gN(1), gN(2)))
+
+#make the g vector
+p<-0.8
+R0D<-1.5
+R0A<-5.5
+
+nend<-10#power ie (a+b)^n
+csize3<-numeric(nend-2)
+for(n in 3:nend){
+nvec<-1:(n-1)
+gvec<-gN(nvec, p, R0D, R0A) #need n-1 g derivatives
+
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+#the for loop should work for chain sizes greater than 2
+x1<-fNr(n, 1, p, R0D, R0A)*BellB(n-1,1,gvec)
+for(k in 2:(n-1)) x1<-x1+fNr(n, k, p, R0D, R0A)*BellB(n-1,k,head(gvec,-(k-1)))
+
+#vector of P(chain size = n)
+csize3[n-2]<-x1/factorial(n)
+rm(x1)
+}
+csize1<-p*exp(-R0D)+(1-p)*exp(-R0A)
+csize2<-fNr(2, 1, p, R0D, R0A)*gN(1,p,R0D, R0A)/2
+#compute chain size distribution
+csize<-c(csize1, csize2, csize3)
+#Compare with Borel distribution
+```
+
+
+```{r}
+#BellB(4, 3, c(gN(1), gN(2)))
+
+#make the g vector
+p2<-0.8
+R0D2<-1.5
+R0A2<-2.5
+
+nend<-10#power ie (a+b)^n
+csize32<-numeric(nend-2)
+for(n in 3:nend){
+nvec<-1:(n-1)
+gvec<-gN(nvec, p2, R0D, R0A2) #need n-1 g derivatives
+
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+#the for loop should work for chain sizes greater than 2
+x1<-fNr(n, 1, p2, R0D, R0A2)*BellB(n-1,1,gvec)
+for(k in 2:(n-1)) x1<-x1+fNr(n, k, p2, R0D, R0A2)*BellB(n-1,k,head(gvec,-(k-1)))
+
+#vector of P(chain size = n)
+csize32[n-2]<-x1/factorial(n)
+rm(x1)
+}
+csize12<-p2*exp(-R0D)+(1-p2)*exp(-R0A2)
+csize22<-fNr(2, 1, p2, R0D, R0A2)*gN(1,p2,R0D, R0A2)/2
+#compute chain size distribution
+csize2<-c(csize12, csize22, csize32)
+#Compare with Borel distribution
+```
+
+```{r}
+extprob1<-uniroot(PoissonGen, c(0, 0.99), R0=R0(0.8, 1.5, 5.5))$root
+extprob2<-uniroot(PoissonGen, c(0, 0.99), R0=R0(0.8, 1.5, 9.5))$root
+extprobmix<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.8, R0D=1.5, R0A=5.5)$root
+extprobmix2<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.8, R0D=1.5, R0A=9.5)$root
+nval<-(1:nend)
+plot((csize/extprobmix)~nval, type='o', xlab="Chain size y", ylab="P(Y=y)", ylim=c(0,1), pch =19)
+lines(csize2/extprobmix2~nval, col='green', type='o', pch=19)
+lines(PoissonChain(nval,R0D+(1-p)*4)/extprob1, col='red', type='o', pch=19)
+lines(PoissonChain(nval,R0D+(1-p)*8)/extprob2, col='purple', type='o', pch=19)
+legend(4,0.8,c( "R0=2.3, R0A=5.5, Aerosol 20%", "R0=3.1, R0A=9.5, Aerosol 20%","Poisson R0=2.3","Poisson R0=3.1"), col=c('black',  'blue', 'red',"purple"), lty=1, bty='n', pch=19, cex=0.9)
+```
+\textbf{Figure 15.} Chain size distributions conditional on extinction for a Poisson mixture vary little with increasing $\delta$. Here $R_0^D = 1.5$.  
+
+
+```{r}
+#BellB(4, 3, c(gN(1), gN(2)))
+
+#make the g vector
+p<-0.95
+R0D<-1.5
+R0A<-9.5
+
+nend<-10#power ie (a+b)^n
+csize3<-numeric(nend-2)
+for(n in 3:nend){
+nvec<-1:(n-1)
+gvec<-gN(nvec, p, R0D, R0A) #need n-1 g derivatives
+
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+#the for loop should work for chain sizes greater than 2
+x1<-fNr(n, 1, p, R0D, R0A)*BellB(n-1,1,gvec)
+for(k in 2:(n-1)) x1<-x1+fNr(n, k, p, R0D, R0A)*BellB(n-1,k,head(gvec,-(k-1)))
+
+#vector of P(chain size = n)
+csize3[n-2]<-x1/factorial(n)
+rm(x1)
+}
+csize1<-p*exp(-R0D)+(1-p)*exp(-R0A)
+csize2<-fNr(2, 1, p, R0D, R0A)*gN(1,p,R0D, R0A)/2
+#compute chain size distribution
+csize<-c(csize1, csize2, csize3)
+#Compare with Borel distribution
+```
+
+
+```{r}
+#BellB(4, 3, c(gN(1), gN(2)))
+
+#make the g vector
+p2<-0.75
+R0D2<-1.5
+R0A2<-9.5
+
+nend<-10#power ie (a+b)^n
+csize32<-numeric(nend-2)
+for(n in 3:nend){
+nvec<-1:(n-1)
+gvec<-gN(nvec, p2, R0D, R0A2) #need n-1 g derivatives
+
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+#the for loop should work for chain sizes greater than 2
+x1<-fNr(n, 1, p2, R0D, R0A2)*BellB(n-1,1,gvec)
+for(k in 2:(n-1)) x1<-x1+fNr(n, k, p2, R0D, R0A2)*BellB(n-1,k,head(gvec,-(k-1)))
+
+#vector of P(chain size = n)
+csize32[n-2]<-x1/factorial(n)
+rm(x1)
+}
+csize12<-p2*exp(-R0D)+(1-p2)*exp(-R0A2)
+csize22<-fNr(2, 1, p2, R0D, R0A2)*gN(1,p2,R0D, R0A2)/2
+#compute chain size distribution
+csize2<-c(csize12, csize22, csize32)
+#Compare with Borel distribution
+```
+
+```{r}
+extprob1<-uniroot(PoissonGen, c(0, 0.99), R0=R0(0.95, 1.5, 9.5))$root
+extprob2<-uniroot(PoissonGen, c(0, 0.99), R0=R0(0.75, 1.5, 9.5))$root
+extprobmix<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.95, R0D=1.5, R0A=9.5)$root
+extprobmix2<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.75, R0D=1.5, R0A=9.5)$root
+nval<-(1:nend)
+plot((csize/extprobmix)~nval, type='o', xlab="Chain size y", ylab="P(Y=y)", ylim=c(0,1), pch =19)
+lines(csize2/extprobmix2~nval, col='green', type='o', pch=19)
+lines(PoissonChain(nval,R0D+(1-0.95)*8)/extprob1, col='red', type='o', pch=19)
+lines(PoissonChain(nval,R0D+(1-0.75)*8)/extprob2, col='purple', type='o', pch=19)
+legend(4,0.8,c( "R0=1.9, R0A=9.5, Aerosol 5%", "R0=3.5, R0A=9.5, Aerosol 25%","Poisson R0=1.9","Poisson R0=3.5"), col=c('black',  'green', 'red',"purple"), lty=1, bty='n', pch=19, cex=0.9)
+```
+\textbf{Figure 16.} The burstiness of the Poisson mixture offspring distributions do not manifest in the corresponding chain size distributions conditioned on extinction. The 5 percent aerosol model has a fatter tail than the 25 percent aerosol model, but $R_0$ is smaller. As $R_0$ decreases, minor outbreaks occur with greater probability in the mixture models. The Poisson model with $R_0 = 1.9$ looks fairly similar to the mixture model with $R_0 = 1.9$. As $R_0$ increases the difference between the mixture chain size distribution and the Poisson distribution becomes larger. Note that the distribution is conditional on extinction, i.e., we have divided it by the probability of extinction. The analytical expression for the chain size distribution will not capture burstiness. Major outbreaks occur with probability $1-z_\infty$. To compare the analytical chain size distribution with a distribution obtained via simulation, we must not divide it by $z_\infty$.
+## Previous assumptions
+\begin{itemize}
+\item We assume that $R_0^D < R_0^A$. If $0 < p < 1$ then $R_0$ has to lie between $R_0^D$ and $R_0^A$. Assuming $R_0 = p R_0^D + (1-p) R_0^A,$ $R_0^D < R_0^A$ and $0 < p < 1$, we can prove this statement by contradiction. Suppose that $R_0<R_0^D$. Then by definition we have $p R_0^D + (1-p) R_0^A<R_0^D$ or equivalently $(1-p) R_0^A<(1-p)R_0^D.$ Since $p \neq 1$ dividing both sides by $1-p$ yields $R_0^A<R_0^D,$ which contradicts the assumption that $R_0^D < R_0^A$. On the other hand, suppose  $R_0>R_0^A$. By definition $p R_0^D + (1-p) R_0^A>R_0^A$ or equivalently $p R_0^D >R_0^A- (1-p) R_0^A$, yielding $p R_0^D >p R_0^A$. Since $p\neq 0$ dividing both sides yields  $R_0^D> R_0^A,$ which contradicts the assumption that $R_0^D < R_0^A$. Therefore if $0<p<1$, $R_0^D < R_0 < R_0^A$.
+\item Assuming $R_0$ and $R_0^D$ are known and $R_0<R_0^D$, we find $R_0^A$ as a function of $p$ using the expected number of cases of the Poisson mixture:
+\begin{equation}\label{eqn:R0A}
+R_0^A = \frac{R_0 - p R_0^D}{1-p},\quad  0\leq p <1
+\end{equation}
+We require $R_0^A > 0$. This will hold provided $p<R_0/R_0^D$. Since $R_0^D<R_0$ then $R_0^A$ is always positive. Note $R_0^A$ is bounded below at $R_0$ when $p=0$, but $R_0^A$ has no upper bound ($\lim_{p\rightarrow 1} R_0^A = +\infty$.)
+\item Increasing the proportion of cases caused by direct contact $p$ will increase $R_0^A$. 
+\item Assuming $R_0$ and $R_0^D$ are known, we find $R_0^A$ as a function of $p$ using the expected number of cases of the Poisson mixture:
+\begin{equation*}
+R_0^A = \frac{R_0 - p R_0^D}{1-p},\quad  0\leq p <1
+\end{equation*}
+We require $R_0^A > 0$. This will hold provided $p<R_0/R_0^D$. Since $p<1$ by definition of $R_0^A$, then $1<R_0/R_0^D<$ and so we require $R_0^D < R_0$. Note $R_0^A$ is bounded below at $R_0$ when $p=0$, but $R_0^A$ has no upper bound ($\lim_{p\rightarrow 1} R_0^A = +\infty$.)
+\item If we assume $R_0^A>R_0^D$, then $R_0 - p R_0^D/(1-p) > R_0^D$ by definition, or equivalently, $R_0 > R_0^D$. Biologically, it makes sense for $R_0^A$ to be greater than $R_0^D$ because on average, someone infected by an unknown source is more likely to infect many people before realizing they are infected, whereas those infected by a known index case may self-isolate (limit their contacts) once they become aware that they infected.
+\item The mean of the branching process (expected number of cases) is $E(X) = R_0 = p R_0^D + (1-p) R_0^A$. Some algebra yields the variance of the branching process,
+$$
+V(X) = R_0 + \frac{p}{1-p}(R_0-R_0^D)^2, \quad 0 < p <1
+$$
+Note that $V(X)$ is always greater than the expected number of cases, $R_0$, and is unbounded in the limit as $p\rightarrow 1$. So if most cases are due to direct contact, and only a small proportion $1-p$ are due to aerosol transmission, the variance to mean ratio will be much greater than one.
+\item Variance as a function of $R_0^A$ has a stationary point at $R_0^A = R_0^D - 1/2p$. But we assume $R_0^D<R_0^A$, so the stationary point is outside of the interval $(R_0^D, R_0^A)$, and since variance is concave up, the variance is an increasing function of $R_0^A$ in the interval $(R_0^D, \infty)$. If we assume that the maximum value $R_0$ can have is one, the maximum value (upper bound) that $R_0^A$ can have for a given value of $R_0^D$ is $R_0^A = (1-p R_0^D)/(1-p).$
+\item Variance as a function of $R_0^D$ (assuming $R_0^A$ is fixed) has a stationary point at 
+\begin{equation}\label{eqn:RodS}
+ R_0^D = R_0^A - p/2p(1-p),   
+\end{equation}
+which is strictly less than $R_0^A$, so it is possible for variance to be a decreasing function of $R_0^D$ somewhere in the interval $(0, (1-(1-p) R_0^A)/p)$ where $(1-(1-p) R_0^A)/p$ is the maximum value that $R_0^D$ can have for a given value of $R_0^A.$
+\item By L'Hopitals rule the upper bound for the location of the stationary point (i.e. limit as $p$ approaches zero from the right) is $R_0^A - 1/2$, and the location of the stationary point decreases as $p$ increases. If $p > 1-1/2R_0^A$, the stationary point (eqn. \ref{eqn:RodS}) is negative and since variance is concave up, it will be an increasing function of $R_0^D$. 
+\item To allow for comparison with a null Poisson model with mean $R_0$, we assume that the mean of the Poisson mixture model is fixed at $R_0$, and the variance can be rewritten as
+\begin{align}\label{eqn:varfixed}
+     V(X) &=  R_0(1-R_0) + p (R_0^D)^2 +(1-p)(R_0^A)^2 \notag \\ &=R_0(1-R_0) +(R_0^A)^2- p \left (R_0^A)^2 -(R_0^D)^2 \right )
+\end{align}
+\item To compare the Poisson mixture offspring distribution with the null Poisson model, we will assume $R_0$ remains constant (the common parameter of both models) but the contribution of direct contact $p$ and the aerosol reproduction number $R_0^A$ can increase. To keep $R_0 = pR_0^D+(1-p)R_0^A $ fixed at a desired value, as $p$ approaches 1, the reproduction number for aerosol exposure events $R_0^A$ must get increasingly large to compensate for the increasing contribution to $R_0$ of direct exposure events with mean $R_0^D$ (the proportion $pR_0^D$). For example, if $R_0 =3$, and $R_0^D=0.5$, then $R_0^A$ must equal 13 to have 80\% of cases due to direct contact and 20\% of cases due to aerosol transmission, i.e., $3 = (0.8)( 0.5) + (0.2)( 13) $. Increasing $p$ to 0.9 but keeping $R_0$ constant at 3 and $R_0^D=0.5$, then $R_0^A$ must be equal to 25.5, larger than the required $R_0^A$ at $p=0.8$. Recall that $R_0^A = (R_0 - p R_0^D)/(1-p).$
+\item Since $R_0^A$ must increase as $p$ increases, then the variance \eqref{eqn:varfixed} must increase as $R_0^A$ increases. The derivative of \eqref{eqn:varfixed} is an increasing function of $R_0^A.$
+\item Equation \eqref{eqn:var} is a concave up quadratic function of both $R_0^A$ and $R_0^D$ since its second derivative $\frac{dV}{dR_0^D}=\frac{dV}{dR_0^A}=2p(1-p)$ is always positive if $0<p<1$.
+
+
+```{r}
+clusterP<-numeric(100000)
+for(i in 1:length(clusterP) )clusterP[i]<-clusterPoisson(10, R0=2)
+clusterP<-data.frame(clusters=clusterP)
+clusterP2<-clusterP%>%filter(clusters<11)
+
+
+clusterM<-numeric(100000)
+for(i in 1:length(clusterM) )clusterM[i]<-clusterPoissonmixture(6, p=0.8, R0D=1.5, R0A=4)
+clusterM<-data.frame(clusters=clusterM)
+clusterM2<-clusterM%>%filter(clusters<11)
+dim(clusterM2)
+
+extprob1<-uniroot(PoissonGen, c(0, 0.99), R0=2)$root
+extprobM<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.8, R0D=1.5, R0A=4)$root
+
+#generate the cluster distriubiton
+p2<-0.8
+R0D2<-1.5
+R0A2<-4
+
+nend<-10#power ie (a+b)^n
+csize32<-numeric(nend-2)
+for(n in 3:nend){
+nvec<-1:(n-1)
+gvec<-gN(nvec, p2, R0D, R0A2) #need n-1 g derivatives
+
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+#the for loop should work for chain sizes greater than 2
+x1<-fNr(n, 1, p2, R0D, R0A2)*BellB(n-1,1,gvec)
+for(k in 2:(n-1)) x1<-x1+fNr(n, k, p2, R0D, R0A2)*BellB(n-1,k,head(gvec,-(k-1)))
+
+#vector of P(chain size = n)
+csize32[n-2]<-x1/factorial(n)
+rm(x1)
+}
+csize12<-p2*exp(-R0D)+(1-p2)*exp(-R0A2)
+csize22<-fNr(2, 1, p2, R0D, R0A2)*gN(1,p2,R0D, R0A2)/2
+#compute chain size distribution
+csize2<-c(csize12, csize22, csize32)
+clusterthM<-data.frame(n=1:10, p=csize2/extprobM)
+
+
+plot<-ggplot() + 
+  geom_bar(data = clusterM2, aes(x = clusters, y = stat(prop))) + 
+  geom_point(data = clusterthM, aes(x=n, y=p))+
+  geom_line(data = clusterthM, aes(x=n, y=p))
+
+ggsave("clustersize.pdf", plot, width=5, height=4)
+
+#Compare with Borel distribution
+clusterth<-data.frame(n=1:10, p=PoissonChain(n=1:10,R0=2)/extprob1)
+
+ggplot() + 
+  geom_bar(data = clusterP2, aes(x = clusters, y = stat(prop))) + 
+  geom_point(data = clusterth, aes(x=n, y=p))+
+  geom_line(data = clusterth, aes(x=n, y=p))
+
+
+
+ggplot(clusterP2) +
+   geom_bar(mapping = aes(x = clusters, y = stat(prop))) #, group = 1
+     #   geom_histogram(binwidth=1, aes(y = ..density..))+
+  #geom_density(col = "red")
+  #geom_line(mapping=aes(x=clusters, y=age2))
+
+clusterPtab<-as.data.frame(table(clusterP2))
+num<-dim(clusterP2)[1]
+clusterPtab2<-mutate(clusterPtab, prop=Freq/num)
+data<-select(clusterPtab2, clusterP2, prop)
+ggplot(data, aes(y=prop)) + 
+    geom_bar()
+```
+
+\end{itemize} 
+
+
+
