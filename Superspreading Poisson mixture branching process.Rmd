@@ -348,7 +348,7 @@ legend(4,0.14,c("Baseline", "Aerosol 40%", "Aerosol 30%","Aerosol 20%","Aerosol 
 ```
 
 
-\textbf{Figure} For each value of $R_0$, the mixture models predict that a higher proportion of individuals remain uninfected than the baseline Poisson model, and the proportion decreases with increasing aerosol transmission.
+\textbf{Figure.} For each value of $R_0$, the mixture models predict that a higher proportion of individuals remain uninfected than the baseline Poisson model, and the proportion decreases with increasing aerosol transmission.
 
 
 
