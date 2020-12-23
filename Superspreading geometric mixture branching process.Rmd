@@ -1,0 +1,435 @@
+
+---
+title: "Superspreading geometric mixture branching process"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(reshape2)
+library(metR)
+library(BellB)
+library(actuar) #simulate mixture branching process
+```
+
+```{r global-options, echo=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+
+
+
+```{r}
+R0fn<-function(p, R0D, R0A){
+R0<- p*R0D+(1-p)*R0A
+}
+
+R0adel<-function(R0D, delta){
+  R0A<-R0D + delta
+}
+
+
+GeometricGen<-function(s, R0=1.5){
+  gen<-1/(1 + R0*(1 - s)) -s #solve prob generating fn = s for s=1/R0. Note R0 > 1 otherwise prob of extinction = 1
+}
+
+GeometricMixtureGen<-function(s, p, R0D,R0A){
+  gen<-p/(1 + R0D*(1 - s))+(1-p)/(1 + R0A*(1 - s))-s
+}
+
+GeometricMixtureGenLimit<-function(s, p, R0D){
+  gen<-p/(1 + R0D*(1 - s))-s
+}
+
+GeometricProportionNotInf<-function(R0=1.5){
+  prop<-1/(1+R0)
+}
+GeometricMixProportionNotInf<-function(p, R0D,R0A){
+  prop<-p/(1+R0D)+(1-p)/(1+R0A)
+}
+GeometricR0star<-function(R0=1.5){
+  R0star<-R0/(1+(R0-1))^2
+}
+#PoissonMixR0star<-function(p, R0D,R0A){
+ # extprob<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=p, R0D=R0D, R0A=R0A)$root
+ # R0star<-p*R0D*exp(R0D*(extprob-1))+(1-p)*R0A*exp(R0A*(extprob-1))
+#}
+
+mean.chain<-function(R0){ 
+  meanchain<-1/(1-R0)
+}
+
+#variance.chainPoisson<-function(R0){ 
+  #Argument: R0 > 1
+ # extprob<-uniroot(PoissonGen, c(0, 0.9), R0=R0)$root
+  #R0star<-PoissonR0star(R0)
+  #varchain<-(extprob*(R0^2)*exp(R0*(extprob-1))+R0star*(1-R0star))/(1-R0star)^3
+#}
+#variance.chainPoissonMix<-function(p, R0D,R0A){ 
+  #Argument: R0 > 1, R0A = (R0 - p R0^D) /(1-p)
+ # extprob<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=p, R0D=R0D, R0A=R0A)$root
+  #R0star<-PoissonMixR0star(p, R0D,R0A)
+  #varchain<-(extprob*((p*R0D^2)*exp(R0D*(extprob-1))+(1-p)*(R0A^2)*exp(R0A*(extprob-1)))+R0star*(1-R0star))/(1-R0star)^3
+  #}
+
+gNGeo<-function(n, p, R0D, R0A){
+  gn<-factorial(n)*(p*(R0D^n)/(1+R0D)^(n+1)+(1-p)*(R0A^n)/(1+R0A)^(n+1))
+}
+
+fNrGeo<-function(n, r, p, R0D, R0A){
+  #n is the power (a+b)^n, a = p*exp(-R0D), b=p*exp(-R0D)
+  #r is the derivative required, r = 1, 2, ..., n-1
+ fn<-(factorial(n)/factorial(n-r))*(p/(1+R0D) +(1-p)/(1+R0A))^(n-r)
+}
+
+#PoissonChain<-function(n, R0){
+#  chain<-(exp(-n*R0)*(n*R0)^(n-1))/factorial(n)
+#}
+
+
+
+Geometricmixturedeviate<- function(m, p, R0D, R0A) {  
+  #Returns a vector of m Poisson mixture deviates
+  # Assumes a finite mixture of two Poisson distributions, with prob p and 1-p respectively, 0<p<1
+  #1 = success = direct contact
+  #0 = failure = aerosol
+  #rbinom = one bernoulli trial for direct transmission
+  #n = number of observations = 1
+  #size = number of trials =1 (bernoulli) per observation
+  #if success, deviate = rpois(R0D) otherwise aerosol
+  deviate<-numeric(m) #number of deviates
+  for(i in 1:m){
+deviate[i]<-ifelse(rbinom(1, size=1, prob = p)==1, rgeom(1,1/(1+R0D)), rgeom(1,1/(1+R0A)))
+  }
+  return(deviate)
+}
+
+Geometricmixturebranch<- function(n,p, R0D, R0A) {
+  #Arguments:
+  #n = number of generations
+  #Returns number of cases per generation as a vector
+  #Uses Poissonmixturedeviate to generate random variates from mixture distribution
+  
+	z <- c(1,rep(0,n))#one infected case in generation 0 
+	for (i in 2:(n+1)) {
+z[i]<-ifelse(z[i-1]==0, 0, sum(Geometricmixturedeviate(z[i-1], p=p, R0D=R0D, R0A=R0A)))	  
+			}
+			return(z)
+			}
+
+
+
+Geometricbranch <- function(n,R0) {  ## Poisson
+  #n = number of generations after generation 0
+	z <- c(1,rep(0,n))
+	#one infected case in generation 0
+	for (i in 2:(n+1)) {
+	  #number of poisson rvs needed per case = z[i-1], then add together to get the number of new infections in that generation
+			z[i] <- sum(rpois(z[i-1],1/(1+R0)))
+			}
+			return(z)
+			}
+			
+
+Geometicmixturebranch2<- function(n,p, R0D, R0A) { 
+  ## requires rmixture from actuar package 
+	z <- c(1,rep(0,n))
+	for (i in 2:(n+1)) {
+z[i] <- sum(rmixture(z[i-1], probs = c(p, 1-p), models = expression(rgeom(1/(1+R0D)), rgeom(1/(1+R0D)))))
+			}
+			return(z)
+			}
+			
+clusterGeometric<-function(n, R0){
+  #cluster size after n generations
+  cluster<-sum(Geometricbranch(n,R0))
+}
+
+clusterGeometricmixture<-function(n, p, R0D, R0A){
+  #cluster size after n generations
+  cluster<-sum(Geometricmixturebranch(n,p, R0D, R0A))
+}
+
+clusterGeometricmixture2<-function(n, p, R0D, R0A){
+  #cluster size after n generations
+  cluster<-sum(Geometricmixturebranch2(n,p, R0D, R0A))
+}
+
+Geometricbranchw <- function(R0) {
+  #returns n = the number of generations that it takes to have a cluster greater than 50 from a Poisson mixture offspring distribution
+  
+  n<-1
+	z <- c(1,rep(0,n)) #n = number of generations after generation 0
+	#one infected case in generation 0
+	cluster<-sum(z)
+	while(cluster<50){
+	    i<-n+1
+			z[i] <- sum(rgeom(z[i-1],1/(1+R0)))
+			cluster<-cluster+z[i]
+      n<-n+1
+      if(z[i]==0){
+        break #break out of loop of cluster dies out
+      }
+			}
+			#return(c(z, cluster, n))
+if(cluster<50)
+	{n<-NA} #prob of extinction zinfinity predicts proportion of clusters that die out
+	return(n)
+			}
+
+		
+Geometricmixturebranchw<- function(p, R0D, R0A) {  
+#returns n = the number of generations that it takes to have a cluster greater than 50 from a Poisson mixture offspring distribution
+
+  n<-1 #generation time
+	z <- c(1,rep(0,n))
+	#one infected case in generation 0 
+	cluster<-sum(z)
+	while(cluster<50){
+	  #number of poisson rvs needed per case = z[i-1], then add together to get the number of new infections in that generation
+	    i<-n+1
+	    
+	z[i]<-ifelse(z[i-1]==0, 0, sum(Geometricmixturedeviate(z[i-1], p=p, R0D=R0D, R0A=R0A)))	 
+
+		cluster<-cluster+z[i]
+      n<-n+1
+      if(z[i]==0){
+        break #if no cases break out of while loop
+      }
+			}
+	#		return(c(z, cluster, n)) as a check
+	if(cluster<50)
+	{n<-NA}
+	return(n)
+			}
+
+
+Geometricmixturebranchw2<- function(p, R0D, R0A) {  
+#returns n = the number of generations that it takes to have a cluster greater than 50 from a Poisson mixture offspring distribution
+
+  n<-1 #generation time
+	z <- c(1,rep(0,n))
+	#one infected case in generation 0 
+	cluster<-sum(z)
+	while(cluster<50){
+	  #number of poisson rvs needed per case = z[i-1], then add together to get the number of new infections in that generation
+	    i<-n+1
+z[i] <- sum(rmixture(z[i-1], probs = c(p, 1-p), models = expression(rgeom(1/(1+R0D)), rgeom(1/(1+R0A)))))#params$R0D
+		cluster<-cluster+z[i]
+      n<-n+1
+      if(z[i]==0){
+        break #if no cases break out of while loop
+      }
+			}
+	#		return(c(z, cluster, n)) as a check
+	if(cluster<50)
+	{n<-NA}
+	return(n)
+			}
+
+```
+
+## Offspring Distribution
+
+
+```{r}
+data<-data.frame(cases=rmixture(1000, probs = c(4, 1), models = expression(rgeom(prob=1/(1+1.5)), rgeom(prob=1/(1+16.5)))))
+
+data2<-data.frame(cases=rgeom(1000,prob=1/(1+4.5)))
+combdat<-bind_rows(list(Mixture=data,Baseline=data2),
+                           .id="model")
+ggplot(combdat,aes(cases,fill=model,y = stat(prop)))+
+   scale_fill_manual(values=c("red","blue"))+
+  geom_bar(alpha=0.5, position ='identity') 
+```
+
+## Probability at least one becomes infected
+
+```{r}
+R0D=1.5;
+R0start=1.6;
+R0end=10;
+pseq<-seq(0.6, 0.9, 0.1)
+delta6<-seq((R0start-R0D)/(1-pseq[1]),(R0end-R0D)/(1-pseq[1]), length.out=100)
+delta7<-seq((R0start-R0D)/(1-pseq[2]),(R0end-R0D)/(1-pseq[2]),length.out=100)
+delta8<-seq((R0start-R0D)/(1-pseq[3]),(R0end-R0D)/(1-pseq[3]), length.out=100)
+delta9<-seq((R0start-R0D)/(1-pseq[4]),(R0end-R0D)/(1-pseq[4]), length.out=100)
+R0vals6<-R0D+delta6*(1-pseq[1])
+R0vals7<-R0D+delta7*(1-pseq[2])
+R0vals8<-R0D+delta8*(1-pseq[3])
+R0vals9<-R0D+delta9*(1-pseq[4])
+prop.notinf<-GeometricProportionNotInf(R0vals6)
+prop.notinfp6<-GeometricMixProportionNotInf(p=0.6, R0D=1.5, R0A=R0adel( R0D=1.5, delta=delta6))
+prop.notinfp7<-GeometricMixProportionNotInf(p=0.7, R0D=1.5, R0A=R0adel( R0D=1.5, delta=delta7))
+prop.notinfp8<-GeometricMixProportionNotInf(p=0.8, R0D=1.5, R0A=R0adel( R0D=1.5, delta=delta8))
+prop.notinfp9<-GeometricMixProportionNotInf(p=0.9, R0D=1.5, R0A=R0adel( R0D=1.5, delta=delta9))
+plot(prop.notinf~R0vals6, xlab="R0", ylab="Proportion not infected (P(X=0))", ylim=c(0,0.4))
+points(prop.notinfp6~R0vals6, col="blue")
+points(prop.notinfp7~R0vals7, col="red")
+points(prop.notinfp8~R0vals8, col="cyan")
+points(prop.notinfp9~R0vals9, col="purple")
+legend(2,0.2,c("Baseline", "Aerosol 40%", "Aerosol 30%","Aerosol 20%","Aerosol 10%"), col=c('black', 'blue', 'red', 'cyan', 'purple'), lty=1, bty='n', pch=1)
+```
+\textbf{Figure.} For each value of $R_0$, the mixture models predict that a higher proportion of individuals remain uninfected than the baseline Poisson model, and the proportion decreases with increasing aerosol transmission. Geometric mixture models saturate more slowly than corresponding Poisson models.
+
+
+## Probability of major epidemic
+
+
+```{r}
+
+R0Aval<-0.5+seq(0.1, 145, 0.1)
+R0<-0.5+0.2*seq(0.1, 145, 0.1)
+index<-which(R0>1)[1]
+prob.extlimit<-uniroot(GeometricMixtureGenLimit, c(0, 0.999),  p=0.8, R0D=0.5)$root
+prob.ext<-numeric(length(R0Aval))
+prob.ext[1:(index)]<-1 #goes extinct if R0 <=1
+for(i in (index):length(R0Aval)){
+  prob.ext[i]<-uniroot(GeometricMixtureGen, c(0, 0.999999999),  p=0.8, R0D=0.5, R0A=R0Aval[i])$root
+}
+
+test_data <-
+  data.frame(
+    limit = 1-prob.extlimit,
+     mixture= 1-prob.ext,
+  R0A = R0Aval)
+  
+
+test_data_long <- melt(test_data, id="R0A")  # convert to long format
+
+ggplot(data=test_data_long,
+       aes(x=R0A, y=value, colour=variable)) +
+    geom_line() +
+  labs(x="Aerosol R0", y="Probability of major epidemic")+
+    scale_color_discrete(name = "Model", labels = c("Limit", "Mixture"))
+```
+\textbf{Figure.} Approaches the limit of the solution of  $z = p/(1+R_0^D(1-z)$ much more slowly relative to Poisson epidemic (the equation has two solutions; one lies between 0 and 1).
+
+```{r}
+R0D=1.5
+prob.ext<-numeric(length(R0vals6))
+prob.extp6<-numeric(length(R0vals6))
+prob.extp7<-numeric(length(R0vals7))
+prob.extp8<-numeric(length(R0vals8))
+prob.extp9<-numeric(length(R0vals9))
+for(i in 1:length(R0vals6)){
+  prob.ext[i]<-uniroot(GeometricGen, c(0, 0.99), R0=R0vals6[i])$root
+  prob.extp6[i]<-uniroot(GeometricMixtureGen, c(0, 0.999),  p=0.6, R0D=1.5, R0A=R0adel(R0D=1.5, delta=delta6[i]))$root
+  prob.extp7[i]<-uniroot(GeometricMixtureGen, c(0, 0.99),  p=0.7, R0D=1.5, R0A=R0adel(R0D=1.5, delta=delta7[i]))$root
+  prob.extp8[i]<-uniroot(GeometricMixtureGen, c(0, 0.99),  p=0.8, R0D=1.5, R0A=R0adel(R0D=1.5, delta=delta8[i]))$root
+  prob.extp9[i]<-uniroot(GeometricMixtureGen, c(0, 0.99),  p=0.9, R0D=1.5, R0A=R0adel(R0D=1.5, delta=delta9[i]))$root
+}
+plot(prob.ext~R0vals6, xlab="R0", ylab="Probability of extinction", ylim=c(0,0.65), main ="Probability of extinction of a minor outbreak")
+points(prob.extp6~R0vals6, col="blue")
+points(prob.extp7~R0vals7, col="red")
+points(prob.extp8~R0vals8, col="cyan")
+points(prob.extp9~R0vals9, col="purple")
+legend(1.5,0.25,c("Baseline", "Aerosol 40%", "Aerosol 30%","Aerosol 20%","Aerosol 10%"), col=c('black', 'blue', 'red', 'cyan', 'purple'), lty=1, bty='n', pch=1, cex=0.6)
+```
+
+## First generation to 50 cases
+
+
+```{r}
+nsims<-1000 #use while loops
+geomgen2<-numeric(nsims)
+for(i in 1:length(geomgen2)) {
+  geomgen2[i]<-Geometricbranchw(2)
+}
+geommixgen2<-numeric(nsims)
+for(i in 1:length(geommixgen2)) geommixgen2[i]<-Geometricmixturebranchw(0.8, 1.5, 4)
+geomgen3<-numeric(nsims)
+for(i in 1:length(geomgen3)) geomgen3[i]<-Geometricbranchw(3)
+geommixgen3<-numeric(nsims)
+for(i in 1:length(geommixgen3)) geommixgen3[i]<-Geometricmixturebranchw(0.8, 1.5, 9)
+geomgen4<-numeric(nsims)
+for(i in 1:length(geomgen4)) geomgen4[i]<-Geometricbranchw(4)
+geommixgen4<-numeric(nsims)
+for(i in 1:length(geommixgen4)) geommixgen4[i]<-Geometricmixturebranchw(0.8, 1.5, 14)
+check<-c(length(na.omit(geomgen2)),length(na.omit(geommixgen2)),length(na.omit(geomgen3)),length(na.omit(geommixgen3)),length(na.omit(geomgen4)), length(na.omit(geommixgen4)))
+geomgen2<-na.omit(geomgen2)
+geommixgen2<-na.omit(geommixgen2)
+geomgen3<-na.omit(geomgen3)
+geommixgen3<-na.omit(geommixgen3)
+geomgen4<-na.omit(geomgen4)
+geommixgen4<-na.omit(geommixgen4)
+
+```
+
+```{r}
+
+
+nsims2<-round(min(check),digits=-2) #round to the nearest 100
+R0=rep(c("2", "3","4"), each=2*nsims2)
+model=rep(c("baseline","mixture"),each=nsims2)
+gentime<-c(geomgen2[1:nsims2], geommixgen2[1:nsims2],geomgen3[1:nsims2], geommixgen3[1:nsims2], geomgen4[1:nsims2], geommixgen4[1:nsims2])
+gentimedata=data.frame(R0, model ,  gentime)
+ 
+# grouped boxplot
+p<-ggplot(gentimedata, aes(x=R0, y=gentime, fill=model)) + 
+    geom_boxplot()
+p
+#ggsave("gentimeR0.pdf", p, height=4, width=5)
+```
+\textbf{Figure.} More variability in geometric epidemics than Poisson epidemics. When $R_0 = 4$ about 21\% of epidemics have generation times between 2 and 3 (i.e. are explosive) and about 8\% have generation times greater or equal than 7 (i.e are relatively slow). 
+
+
+```{r}
+table(geommixgen4[1:nsims2])
+summary(geommixgen4[1:nsims2])
+table(geommixgen4[1:nsims2])/nsims2
+sum((table(geommixgen4[1:nsims2])/nsims2)[5:9])
+```
+
+
+## Cluster size distribution conditioned on extinction
+
+```{r}
+
+#simulated cluster sizes for the Poisson mixture distribution:
+clusterM<-numeric(100000)
+for(i in 1:length(clusterM) )clusterM[i]<-clusterGeometricmixture(6, p=0.8, R0D=1.5, R0A=5)
+clusterM<-data.frame(clusters=clusterM)
+clusterM2<-clusterM%>%filter(clusters<11)
+dim(clusterM2) #use to obtain the proportion that have gone extinct
+
+extprob1<-uniroot(GeometricGen, c(0, 0.99), R0=2)$root
+extprobM<-uniroot(GeometricMixtureGen, c(0, 0.99),  p=0.8, R0D=1.5, R0A=5)$root
+
+#generate the cluster distriubiton for the mixture distribution
+p2<-0.8
+R0D2<-1.5
+R0A2<-5
+
+nend<-10#power ie (a+b)^n
+csize32<-numeric(nend-2)
+for(n in 3:nend){
+nvec<-1:(n-1)
+gvec<-gNGeo(nvec, p2, R0D, R0A2) #need n-1 g derivatives
+
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+#the for loop should work for chain sizes greater than 2
+x1<-fNrGeo(n, 1, p2, R0D, R0A2)*BellB(n-1,1,gvec)
+for(k in 2:(n-1)) x1<-x1+fNrGeo(n, k, p2, R0D2, R0A2)*BellB(n-1,k,head(gvec,-(k-1)))
+
+#vector of P(chain size = n)
+csize32[n-2]<-x1/factorial(n)
+rm(x1)
+}
+csize12<-p2/(1+R0D2)+(1-p2)/(1+R0A2)
+csize22<-fNrGeo(2, 1, p2, R0D2, R0A2)*gNGeo(1,p2,R0D, R0A2)/2
+#compute chain size distribution
+csize2<-c(csize12, csize22, csize32)
+#cluster sizes conditional on extinction
+clusterthM<-data.frame(n=1:10, p=csize2/extprobM) 
+
+
+plot<-ggplot() + 
+  geom_bar(data = clusterM2, aes(x = clusters, y = stat(prop))) + 
+  geom_point(data = clusterthM, aes(x=n, y=p))+
+  geom_line(data = clusterthM, aes(x=n, y=p))
+plot
+#ggsave("clustersize.pdf", plot, width=5, height=4)
+
+```
