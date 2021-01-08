@@ -793,6 +793,8 @@ legend(0.8,0.7,c("R0A=2.5", "R0A=3.5", "R0A=5.5"), col=c('black', 'blue', 'red')
 ## Derivation of chain size distribution
 
 
+Up to cluster sizes of 20:
+
 ```{r}
 R0D=1.5;
 R0A=4
@@ -806,11 +808,71 @@ clusterP2<-clusterP%>%filter(clusters<11)
 clusterM<-numeric(100000)
 for(i in 1:length(clusterM) )clusterM[i]<-clusterPoissonmixture(6, p=0.8, R0D=1.5, R0A=4)
 clusterM<-data.frame(clusters=clusterM)
-clusterM2<-clusterM%>%filter(clusters<11)
-dim(clusterM2) #use to obtain the proportion that have gone extinct
+clusterM20<-clusterM%>%filter(clusters<21)
+dim(clusterM20) #use to obtain the proportion that have gone extinct
 
 extprob1<-uniroot(PoissonGen, c(0, 0.99), R0=2)$root
 extprobM<-uniroot(PoissonMixtureGen, c(0, 0.99),  p=0.8, R0D=1.5, R0A=4)$root
+
+#generate the cluster distriubiton for the mixture distribution
+p2<-0.8
+R0D2<-1.5
+R0A2<-4
+
+nend<-20#power ie (a+b)^n
+csize32<-numeric(nend-2)
+for(n in 3:nend){
+nvec<-1:(n-1)
+gvec<-gN(nvec, p2, R0D, R0A2) #need n-1 g derivatives
+
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+#the for loop should work for chain sizes greater than 2
+x1<-fNr(n, 1, p2, R0D, R0A2)*BellB(n-1,1,gvec)
+for(k in 2:(n-1)) x1<-x1+fNr(n, k, p2, R0D, R0A2)*BellB(n-1,k,head(gvec,-(k-1)))
+
+#vector of P(chain size = n)
+csize32[n-2]<-x1/factorial(n)
+rm(x1)
+}
+csize12<-p2*exp(-R0D)+(1-p2)*exp(-R0A2)
+csize22<-fNr(2, 1, p2, R0D, R0A2)*gN(1,p2,R0D, R0A2)/2
+#compute chain size distribution
+csize2<-c(csize12, csize22, csize32)
+#cluster sizes conditional on extinction
+clusterthM20<-data.frame(n=1:20, p=csize2/extprobM) 
+
+
+plot<-ggplot() + 
+  geom_bar(data = clusterM20, aes(x = clusters, y = stat(prop))) + 
+  geom_point(data = clusterthM20, aes(x=n, y=p))+
+  geom_line(data = clusterthM20, aes(x=n, y=p))
+plot
+#ggsave("clustersize.pdf", plot, width=5, height=4)
+
+```
+The theoretical cluster size distribution is given by:
+```{r}
+mutate(clusterthM20, n*p)
+```
+
+Use the theoretical distribution to calculate the mean chain size, the sum of the n*p column (mean = $\sum_i y_i P(Y=y_i)$). Note that the sum of the probabilities is close to 1, but less than one, so the calculation yields an underestimate of the mean:
+```{r}
+colSums(mutate(clusterthM20, n*p))
+```
+
+The theoretical mean $1/(1-R_0^*)$ is
+```{r}
+
+theor.mean<-mean.chain(PoissonMixR0star(p=0.8, R0D=1.5, R0A=4))
+theor.mean
+```
+
+
+Up to cluster sizes of 10:
+
+```{r}
+clusterM2<-clusterM%>%filter(clusters<11)
+dim(clusterM2) #use to obtain the proportion that have gone extinct
 
 #generate the cluster distriubiton for the mixture distribution
 p2<-0.8
@@ -848,7 +910,15 @@ plot
 #ggsave("clustersize.pdf", plot, width=5, height=4)
 
 ```
+The mean of the clusters obtained from simulation of the branching process is an overestimate:
+```{r}
+mean(clusterM2$clusters)
+```
+
+
 \textbf{Figure.} Cluster size distribution obtained from simulation (gray bars) compared to the theoretical prediction (points). We generated 100000 simulations of a mixture branching process with $p=0.8$, $R_0^D = 1.5$ and $R_0^A=4$, retaining those that went extinct within 6 generations ($n=28625$). Points are the theoretical predictions for the probability of observing a cluster of size $y=1,2,\dots, 10$ generated using equations \eqref{eqn:cluster} and \eqref{eqn:bell} conditioned on the probability of extinction, $z_\infty = 0.285$.}
+
+
 
 ```{r}
 R0D=1.5;
@@ -949,7 +1019,7 @@ where $B_{y,k}$ are Bell polynomials of the $g_k$.
 #make the g vector
 p<-0.8
 R0D<-1.5
-R0A<-16.5
+R0A<-4
 
 nend<-10#power ie (a+b)^n
 csize3<-numeric(nend-2)
@@ -986,19 +1056,19 @@ nend<-10#power ie (a+b)^n
 csize32<-numeric(nend-2)
 for(n in 3:nend){
 nvec<-1:(n-1)
-gvec<-gN(nvec, p2, R0D, R0A2) #need n-1 g derivatives
+gvec<-gN(nvec, p2, R0D2, R0A2) #need n-1 g derivatives
 
 #The n-1th derivative of (a+b)^n evaluated at s = 0:
 #the for loop should work for chain sizes greater than 2
-x1<-fNr(n, 1, p2, R0D, R0A2)*BellB(n-1,1,gvec)
-for(k in 2:(n-1)) x1<-x1+fNr(n, k, p2, R0D, R0A2)*BellB(n-1,k,head(gvec,-(k-1)))
+x1<-fNr(n, 1, p2, R0D2, R0A2)*BellB(n-1,1,gvec)
+for(k in 2:(n-1)) x1<-x1+fNr(n, k, p2, R0D2, R0A2)*BellB(n-1,k,head(gvec,-(k-1)))
 
 #vector of P(chain size = n)
 csize32[n-2]<-x1/factorial(n)
 rm(x1)
 }
-csize12<-p2*exp(-R0D)+(1-p2)*exp(-R0A2)
-csize22<-fNr(2, 1, p2, R0D, R0A2)*gN(1,p2,R0D, R0A2)/2
+csize12<-p2*exp(-R0D2)+(1-p2)*exp(-R0A2)
+csize22<-fNr(2, 1, p2, R0D2, R0A2)*gN(1,p2,R0D2, R0A2)/2
 #compute chain size distribution
 csize2<-c(csize12, csize22, csize32)
 #Compare with Borel distribution
@@ -1059,19 +1129,19 @@ nend<-10#power ie (a+b)^n
 csize32<-numeric(nend-2)
 for(n in 3:nend){
 nvec<-1:(n-1)
-gvec<-gN(nvec, p2, R0D, R0A2) #need n-1 g derivatives
+gvec<-gN(nvec, p2, R0D2, R0A2) #need n-1 g derivatives
 
 #The n-1th derivative of (a+b)^n evaluated at s = 0:
 #the for loop should work for chain sizes greater than 2
-x1<-fNr(n, 1, p2, R0D, R0A2)*BellB(n-1,1,gvec)
-for(k in 2:(n-1)) x1<-x1+fNr(n, k, p2, R0D, R0A2)*BellB(n-1,k,head(gvec,-(k-1)))
+x1<-fNr(n, 1, p2, R0D2, R0A2)*BellB(n-1,1,gvec)
+for(k in 2:(n-1)) x1<-x1+fNr(n, k, p2, R0D2, R0A2)*BellB(n-1,k,head(gvec,-(k-1)))
 
 #vector of P(chain size = n)
 csize32[n-2]<-x1/factorial(n)
 rm(x1)
 }
-csize12<-p2*exp(-R0D)+(1-p2)*exp(-R0A2)
-csize22<-fNr(2, 1, p2, R0D, R0A2)*gN(1,p2,R0D, R0A2)/2
+csize12<-p2*exp(-R0D2)+(1-p2)*exp(-R0A2)
+csize22<-fNr(2, 1, p2, R0D2, R0A2)*gN(1,p2,R0D2, R0A2)/2
 #compute chain size distribution
 csize2<-c(csize12, csize22, csize32)
 #Compare with Borel distribution
@@ -1135,19 +1205,19 @@ nend<-10#power ie (a+b)^n
 csize32<-numeric(nend-2)
 for(n in 3:nend){
 nvec<-1:(n-1)
-gvec<-gN(nvec, p2, R0D, R0A2) #need n-1 g derivatives
+gvec<-gN(nvec, p2, R0D2, R0A2) #need n-1 g derivatives
 
 #The n-1th derivative of (a+b)^n evaluated at s = 0:
 #the for loop should work for chain sizes greater than 2
-x1<-fNr(n, 1, p2, R0D, R0A2)*BellB(n-1,1,gvec)
-for(k in 2:(n-1)) x1<-x1+fNr(n, k, p2, R0D, R0A2)*BellB(n-1,k,head(gvec,-(k-1)))
+x1<-fNr(n, 1, p2, R0D2, R0A2)*BellB(n-1,1,gvec)
+for(k in 2:(n-1)) x1<-x1+fNr(n, k, p2, R0D2, R0A2)*BellB(n-1,k,head(gvec,-(k-1)))
 
 #vector of P(chain size = n)
 csize32[n-2]<-x1/factorial(n)
 rm(x1)
 }
-csize12<-p2*exp(-R0D)+(1-p2)*exp(-R0A2)
-csize22<-fNr(2, 1, p2, R0D, R0A2)*gN(1,p2,R0D, R0A2)/2
+csize12<-p2*exp(-R0D2)+(1-p2)*exp(-R0A2)
+csize22<-fNr(2, 1, p2, R0D2, R0A2)*gN(1,p2,R0D2, R0A2)/2
 #compute chain size distribution
 csize2<-c(csize12, csize22, csize32)
 #Compare with Borel distribution
