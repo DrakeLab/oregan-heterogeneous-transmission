@@ -1,0 +1,150 @@
+---
+title: "Superspreading negative binomial simulations"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+```{r global-options, echo=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+```{r}
+NegBinmixturedeviate<- function(m, p, R0D, k, delta) {  
+  #Returns a vector of m Poisson mixture deviates
+  # Assumes a finite mixture of two Poisson distributions, with prob p and 1-p respectively, 0<p<1
+  #1 = success = direct contact
+  #0 = failure = aerosol
+  #rbinom = one bernoulli trial for direct transmission
+  #n = number of observations = 1
+  #size = number of trials =1 (bernoulli) per observation
+  #if success, deviate = rpois(R0D) otherwise aerosol
+  R0A<-R0D +delta
+  deviate<-numeric(m) #number of deviates
+  for(i in 1:m){
+deviate[i]<-ifelse(rbinom(1, size=1, prob = p)==1, rnbinom(1,R0A, k), rnbinom(1,R0D, k))
+  }
+  return(deviate)
+}
+
+
+NegBinbranchw <- function(R0,k) {
+  #returns n = the number of generations that it takes to have a cluster greater than 50 from a Poisson mixture offspring distribution
+  
+  n<-1
+	z <- c(1,rep(0,n)) #n = number of generations after generation 0
+	#one infected case in generation 0
+	cluster<-sum(z)
+	while(cluster<50){
+	    i<-n+1
+			z[i] <- sum(rnbinom(z[i-1],R0,k))
+			cluster<-cluster+z[i]
+      n<-n+1
+      if(z[i]==0){
+        break #break out of loop of cluster dies out
+      }
+			}
+			#return(c(z, cluster, n))
+if(cluster<50)
+	{n<-NA} #prob of extinction zinfinity predicts proportion of clusters that die out
+	return(n)
+			}
+
+		
+NegBinmixturebranchw<- function(p, R0D, k, delta) {  
+#returns n = the number of generations that it takes to have a cluster greater than 50 from a Poisson mixture offspring distribution
+R0A<-R0D+delta
+  n<-1 #generation time
+	z <- c(1,rep(0,n))
+	#one infected case in generation 0 
+	cluster<-sum(z)
+	while(cluster<50){
+	  #number of poisson rvs needed per case = z[i-1], then add together to get the number of new infections in that generation
+	    i<-n+1
+	    
+	z[i]<-ifelse(z[i-1]==0, 0, sum(NegBinmixturedeviate(z[i-1], p=p, R0D=R0D, k=k, delta=delta)))	 
+
+		cluster<-cluster+z[i]
+      n<-n+1
+      if(z[i]==0){
+        break #if no cases break out of while loop
+      }
+			}
+	#		return(c(z, cluster, n)) as a check
+	if(cluster<50)
+	{n<-NA}
+	return(n)
+			}
+
+
+Poissonmixturebranchw2<- function(p, R0D, R0A) {  
+#returns n = the number of generations that it takes to have a cluster greater than 50 from a Poisson mixture offspring distribution
+
+  n<-1 #generation time
+	z <- c(1,rep(0,n))
+	#one infected case in generation 0 
+	cluster<-sum(z)
+	while(cluster<50){
+	  #number of poisson rvs needed per case = z[i-1], then add together to get the number of new infections in that generation
+	    i<-n+1
+z[i] <- sum(rmixture(z[i-1], probs = c(p, 1-p), models = expression(rpois(R0D), rpois(R0A))))#params$R0D
+		cluster<-cluster+z[i]
+      n<-n+1
+      if(z[i]==0){
+        break #if no cases break out of while loop
+      }
+			}
+	#		return(c(z, cluster, n)) as a check
+	if(cluster<50)
+	{n<-NA}
+	return(n)
+			}
+
+```
+
+
+```{r}
+#R0=4.5
+nsims<-10000 #use while loops
+kval<-0.5
+R0<-2
+R0D<-1.1
+poissgen2<-numeric(nsims)
+for(i in 1:length(poissgen2)) {
+  poissgen2[i]<-NegBinbranchw(R0, kval)
+}
+#vary p =0.05, 0.1, 0.2
+poissmixgen2<-numeric(nsims)
+for(i in 1:length(poissmixgen2)) poissmixgen2[i]<-NegBinmixturebranchw(p=0.05, R0D, k=kval, delta=(R0-R0D)/0.05)
+
+poissmixgen3<-numeric(nsims)
+for(i in 1:length(poissmixgen3)) poissmixgen3[i]<-NegBinmixturebranchw(p=0.1, R0D, k=kval, delta=(R0-R0D)/0.1)
+poissmixgen4<-numeric(nsims)
+for(i in 1:length(poissmixgen4)) poissmixgen4[i]<-NegBinmixturebranchw(p=0.15, R0D, k=kval, delta=(R0-R0D)/0.15)
+check<-c(length(na.omit(poissmixgen2)),length(na.omit(poissmixgen3)), length(na.omit(poissmixgen4)))
+poissgen2<-na.omit(poissgen2)
+poissmixgen2<-na.omit(poissmixgen2)
+poissmixgen3<-na.omit(poissmixgen3)
+poissmixgen4<-na.omit(poissmixgen4)
+
+```
+
+Median generation time same for all mixtures. Generation time has most variability for p=0.05, with 25% taking 11 generations or more to take off. 25% take 3 generations or less (most explosive for p =0.05, 0.1). 75% take 9 generations or less if p=0.1 (most explosive?)
+```{r}
+
+
+nsims2<-round(min(check),digits=-2) #round to the nearest 100
+pval=rep(c("0.05", "0.1","0.15"), each=2*nsims2)
+model=rep(c("baseline","mixture"),each=nsims2)
+gentime<-c(poissgen2[1:nsims2], poissmixgen2[1:nsims2], poissgen2[1:nsims2],poissmixgen3[1:nsims2], poissgen2[1:nsims2], poissmixgen4[1:nsims2])
+data2=data.frame(p=pval, model ,  GenerationTime=gentime)
+ 
+# grouped boxplot
+p<-ggplot(data2, aes(x=p, y=GenerationTime, fill=model)) + 
+    geom_boxplot()
+p
+#ggsave("gentimeR0.pdf", p, height=4, width=5)
+```

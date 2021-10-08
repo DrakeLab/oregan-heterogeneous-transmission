@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(reshape2)
 library(metR)
-library(BellB)
+library(BellB)#install.packages("remotes") remotes::install_github("antiphon/BellB")
 library(actuar) #simulate mixture branching process
 ```
 

@@ -1,0 +1,524 @@
+
+---
+title: "Superspreading negative binomial mixture branching process"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(BellB)
+#library(actuar) #simulate mixture branching process
+```
+
+```{r global-options, echo=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+
+
+
+```{r}
+R0fn<-function(p, R0D, R0A){
+R0<- p*R0D+(1-p)*R0A
+}
+
+R0adel<-function(R0D, delta){
+  R0A<-R0D + delta
+}
+
+
+GeometricGen<-function(s, R0=1.5){
+  gen<-1/(1 + R0*(1 - s)) -s #solve prob generating fn = s for s=1/R0. Note R0 > 1 otherwise prob of extinction = 1
+}
+
+GeometricMixtureGen<-function(s, p, R0D,R0A){
+  gen<-p/(1 + R0D*(1 - s))+(1-p)/(1 + R0A*(1 - s))-s
+}
+
+
+mean.chain<-function(R0){ 
+  meanchain<-1/(1-R0)
+}
+
+
+
+gNNB<-function(n, p, R0D, R0A, k){
+  #inner function - negative binomial mixture
+  #find its nth derivative
+  q1 <- (1+R0A/k)
+  q2 <- (1+R0D/k)
+  
+  if(n==1) {
+    gn<-p*R0A*q1^(-k-1)+(1-p)*R0D*q2^(-k-1)
+  }
+  else if (n==2){
+    gn<-p*((R0A^2)/k)*(k+1)*q1^(-k-2)+(1-p)*((R0D^2)/k)*(k+1)*q2^(-k-2)
+  }
+  else if (n>2) {
+    pvec <- (k+1):(k+n-1)
+  ppvec<-prod(pvec)
+  #gn<-p*k*ppvec*((R0A/k)^n)*(1+R0A/k)^(-n-k)+(1-p)*(k)*ppvec*((R0D/k)^n)*(1+R0D/k)^(-n-k)
+  gn<-p*((R0A/k)^n)*(k*ppvec)*q1^(-k-n)+(1-p)*((R0D/k)^n)*(k*ppvec)*q2^(-k-n) 
+  }
+  return(gn) 
+}
+
+fNrNB<-function(n, r, p, R0D, R0A, k){
+  #outer function = pgf at s = 0
+  #n is the power (a+b)^n, a = p*(1+R0A/k)^(-k), b=(1-p)*(1+R0D/k)^(-k)
+  #r is the derivative required, r = 1, 2, ..., n-1
+  #pgf of neg binom at s=0 is (1+R0/k)^(-k)
+ fn<-(factorial(n)/factorial(n-r))*(p*(1+R0A/k)^(-k) +(1-p)*(1+R0D/k)^(-k))^(n-r)
+}
+
+fNrGeo<-function(n, r, p, R0D, R0A){
+  #n is the power (a+b)^n, a = p*exp(-R0D), b=p*exp(-R0D)
+  #r is the derivative required, r = 1, 2, ..., n-1
+ fn<-(factorial(n)/factorial(n-r))*((1-p)/(1+R0D) +(p)/(1+R0A))^(n-r)
+}
+
+gNGeo<-function(n, p, R0D, R0A){
+  #nth derivative of geometric mixture
+  gn<-factorial(n)*((1-p)*(R0D^n)/(1+R0D)^(n+1)+(p)*(R0A^n)/(1+R0A)^(n+1))
+}
+
+nbinomchain<-function(j, R0, k){
+  #cluster size distribution for negative binomial model
+  #formula from Blumberg et al. 2013
+  #Arguments: j=chain size, R0=mean, k=dispersion
+  a<-R0/k
+  x<-j-1
+  y<-(a^x)/(1+a)^(k*j+x)
+  g<-gamma(k*j+x)/(gamma(k*j)*gamma(j+1))
+  return(g*y)
+}
+
+```
+Figure 1: Probability mass functions for $R_0>1$
+
+```{r}
+#parameters
+k<-c(1/2, 1, 2, 4)
+R0D<-1.1
+R0<-2
+p<-0.1
+delta<-(R0-R0D)/p
+R0A<-R0D+delta
+```
+
+```{r}
+nbinommixturechain<-function(nend, p, R0D,k, delta){
+  #generate cluster size distribution for a nbinom mixture, 
+  #clusters of size 1, 2, ...., nend
+  R0A<-R0D+delta
+csize3end<-numeric(nend-2)
+
+for(n in 3:nend){
+  #for loop to calculate chain sizes greater than 2
+nvec<-1:(n-1)
+# gvec<-gNGeo(nvec, p, R0D, R0A) #need n-1 g derivatives
+
+#compute the inner function 1, 2,..,n-1 derivatives of inner function 
+gvec<-numeric(length(nvec))
+for(i in 1:length(nvec)) gvec[i]<-gNNB(nvec[i],  p, R0D, R0A,k) #if statement so have to fill one by one
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+
+#use the derivatives to compute the  Bell polynomials vector of length n-1.
+
+#Faa Di Bruno's formula = sum of outer function * Bell polys of the inner function derivatives
+x1<-fNrNB(n, 1, p, R0D, R0A,k)*BellB(n-1,1,gvec) #r=1
+
+for(i in 2:(n-1)) x1<-x1+fNrNB(n, i, p, R0D, R0A,k)*BellB(n-1,i,head(gvec,-(i-1)))
+
+#vector of P(chain size = n)
+csize3end[n-2]<-x1/factorial(n)
+rm(x1)
+}
+#prob cluster size = 1 = Prob(cases=0)
+csize1<-(p)*(1+R0A/k)^(-k)+(1-p)*(1+R0D/k)^(-k)
+#prob cluster size = 2
+csize2<-fNrNB(2, 1, p, R0D, R0A,k)*gNNB(1,p,R0D, R0A,k)/2
+
+#chain size probabilities
+csizemix<-c(csize1, csize2, csize3end)
+return(csizemix)
+}
+
+ProbabilityChainSizeLessthanEqualC<-function(C, chainsizes){
+  #chainsizes is a column vector of chain sizes
+  #C =1, 2, ...,length(chainsizes)
+  prob<-sum(chainsizes[1:C])
+}
+```
+
+```{r}
+cluster<-nbinommixturechain(nend=10, p=0.1, R0D=1.1,k=2, delta=(2-1.1)/0.1)
+data.frame(n=1:10, cluster)
+```
+```{r}
+clusterdistrib%>%filter(Model=="mixture" & k==2)
+```
+```{r}
+a<-ProbabilityChainSizeLessthanEqualC(C=10, cluster)
+a
+```
+
+
+```{r}
+
+#base data is negative binomial model, R0=2, dispersion parameter = k
+basedata<-matrix(NA, nrow=11, ncol=4) #cols are variables, rows are observations
+for(i in 1:4) basedata[,i]<-dnbinom(0:10, size=k[i],mu=R0) #neg binom with R0=2
+#mix data is negative binomial mixture model, R0=2, R0D, p as above dispersion parameter = k
+mixdata<-matrix(NA, nrow=11, ncol=4)
+for(i in 1:4) mixdata[,i]<-p*dnbinom(0:10, size=k[i],mu=R0D+delta)+(1-p)*dnbinom(0:10, size=k[i],mu=R0D)
+
+#make a pmf data frame with columns = cases, proportions, dispersion parameters, model type
+mdatapmf<-data.frame(Cases=0:10, Proportion=mixdata[,1], k=rep(k[1],11), Model=rep("mixture",11), R0=rep(2,nend+1), Distribution = rep("pmf",nend+1))
+for(i in 2:4) mdatapmf<-bind_rows(mdatapmf,data.frame(Cases=0:10, Proportion=mixdata[,i], k=rep(k[i],11), Model=rep("mixture",11),R0=rep(2,nend+1), Distribution = rep("pmf",nend+1)))
+
+bdatapmf<-data.frame(Cases=0:10, Proportion=basedata[,1], k=rep(k[1],11), Model=rep("base",11),R0=rep(2,nend+1), Distribution = rep("pmf",nend+1))
+for(i in 2:4) bdatapmf<-bind_rows(bdatapmf,data.frame(Cases=0:10, Proportion=basedata[,i], k=rep(k[i],11), Model=rep("base",11),R0=rep(2,nend+1), Distribution = rep("pmf",nend+1)))
+
+pmf<-bind_rows(bdatapmf, mdatapmf)
+
+#pmf%>%filter(kval==0.5)%>%
+#ggplot() + 
+ # geom_point(aes(x = cases, y = prop, colour=model))+
+  #geom_line(aes(x = cases, y = prop, colour=model))+
+ #ggtitle("k=0.5") 
+
+ggplot(pmf)+
+   geom_point(aes(x = Cases, y = Proportion, colour=Model))+
+  geom_line(aes(x = Cases, y = Proportion, colour=Model))+
+  facet_wrap(~k, labeller=label_both)
+
+```
+Generate the cluster size distributions for the mixtures for each value of k:
+
+```{r}
+nend<-10 #power ie (a+b)^n #nend = number of clusters, 1,...nend
+csizemix<-matrix(NA, ncol=4, nrow=nend) # 4 cols for the 4 vals of k
+for(j in 1:4){
+  
+
+kval<-k[j]
+#generate the cluster distriubiton for the mixture distribution
+
+
+csize3end<-numeric(nend-2)
+
+for(n in 3:nend){
+  #for loop to calculate chain sizes greater than 2
+nvec<-1:(n-1)
+# gvec<-gNGeo(nvec, p, R0D, R0A) #need n-1 g derivatives
+
+#compute the inner function 1, 2,..,n-1 derivatives of inner function 
+gvec<-numeric(length(nvec))
+for(i in 1:length(nvec)) gvec[i]<-gNNB(nvec[i],  p, R0D, R0A,kval) #if statement so have to fill one by one
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+
+#use the derivatives to compute the  Bell polynomials vector of length n-1.
+
+#Faa Di Bruno's formula = sum of outer function * Bell polys of the inner function derivatives
+x1<-fNrNB(n, 1, p, R0D, R0A,kval)*BellB(n-1,1,gvec) #r=1
+
+for(i in 2:(n-1)) x1<-x1+fNrNB(n, i, p, R0D, R0A,kval)*BellB(n-1,i,head(gvec,-(i-1)))
+
+#vector of P(chain size = n)
+csize3end[n-2]<-x1/factorial(n)
+rm(x1)
+}
+#prob cluster size = 1 = Prob(cases=0)
+csize1<-(p)*(1+R0A/kval)^(-kval)+(1-p)*(1+R0D/kval)^(-kval)
+#prob cluster size = 2
+csize2<-fNrNB(2, 1, p, R0D, R0A,kval)*gNNB(1,p,R0D, R0A,kval)/2
+
+#chain size probabilities
+csizemix[,j]<-c(csize1, csize2, csize3end)
+
+}
+
+```
+
+Put into a data frame:
+```{r}
+#data frame of chain size distribution for mixtures
+clustermix<-data.frame(Chains=1:nend, Proportion=csizemix[,1], k=rep(k[1],nend), Model=rep("mixture",nend), R0=rep(2,nend), Distribution = rep("chain",nend)) 
+for(i in 2:4) clustermix<-bind_rows(clustermix,data.frame(Chains=1:nend, Proportion=csizemix[,i], k=rep(k[i],nend), Model=rep("mixture",nend), R0=rep(2,nend), Distribution = rep("chain",nend)))
+
+csizebase<-matrix(NA, nrow=nend, ncol=4)
+for(i in 1:4) csizebase[,i]<-nbinomchain(1:10, R0, k[i])
+
+clusterbase<-data.frame(Chains=1:nend, Proportion=csizebase[,1], k=rep(k[1],nend), Model=rep("base",nend), R0=rep(2,nend), Distribution = rep("chain",nend)) 
+for(i in 2:4) clusterbase<-bind_rows(clusterbase,data.frame(Chains=1:nend, Proportion=csizebase[,i], k=rep(k[i],nend), Model=rep("base",nend), R0=rep(2,nend), Distribution = rep("chain",nend)))
+
+clusterdistrib<-bind_rows(clusterbase, clustermix)
+```
+
+Plot shows that chain size distribution from a mixture is fatter tailed when $R_0>1$:
+```{r}
+ggplot(clusterdistrib)+
+   geom_point(aes(x = Chains, y = Proportion, colour=Model))+
+  geom_line(aes(x = Chains, y = Proportion, colour=Model))+
+  facet_wrap(~k, labeller=label_both)
+```
+## Cluster size distribution for $R_0<1$
+
+Figure 1: Probability mass functions for $R_0<1$
+
+```{r}
+#parameters
+k<-c(1/2, 1, 2, 4)
+R0D<-0.5
+R0<-0.8
+p<-0.1
+delta<-(R0-R0D)/p
+R0A<-R0D+delta
+nend<-10 #number of chains
+```
+
+
+```{r}
+
+#base data is negative binomial model, R0=2, dispersion parameter = k
+basedata05<-matrix(NA, nrow=11, ncol=4) #cols are variables, rows are observations
+for(i in 1:4) basedata05[,i]<-dnbinom(0:10, size=k[i],mu=R0) #neg binom with R0=2
+#mix data is negative binomial mixture model, R0=2, R0D, p as above dispersion parameter = k
+mixdata05<-matrix(NA, nrow=11, ncol=4)
+for(i in 1:4) mixdata05[,i]<-p*dnbinom(0:10, size=k[i],mu=R0D+delta)+(1-p)*dnbinom(0:10, size=k[i],mu=R0D)
+
+#make a pmf data frame with columns = cases, proportions, dispersion parameters, model type
+mdatapmf05<-data.frame(Cases=0:10, Proportion=mixdata05[,1], k=rep(k[1],11), Model=rep("mixture",11), R0=rep(0.8,nend+1), Distribution = rep("pmf",nend+1))
+for(i in 2:4) mdatapmf05<-bind_rows(mdatapmf05,data.frame(Cases=0:10, Proportion=mixdata05[,i], k=rep(k[i],11), Model=rep("mixture",11), R0=rep(0.8,nend+1), Distribution = rep("pmf",nend+1)))
+
+bdatapmf05<-data.frame(Cases=0:10, Proportion=basedata05[,1], k=rep(k[1],11), Model=rep("base",11), R0=rep(0.8,nend+1), Distribution = rep("pmf",nend+1))
+for(i in 2:4) bdatapmf05<-bind_rows(bdatapmf05,data.frame(Cases=0:10, Proportion=basedata05[,i], k=rep(k[i],11), Model=rep("base",11), R0=rep(0.8,nend+1), Distribution = rep("pmf",nend+1)))
+
+pmf05<-bind_rows(bdatapmf05, mdatapmf05)
+
+ggplot(pmf05)+
+   geom_point(aes(x = Cases, y = Proportion, colour=Model))+
+  geom_line(aes(x = Cases, y = Proportion, colour=Model))+
+  facet_wrap(~k, labeller=label_both)
+
+```
+Generate the cluster size distributions for the mixtures for each value of k:
+
+```{r}
+nend<-10 #power ie (a+b)^n #nend = number of clusters, 1,...nend
+csizemix05<-matrix(NA, ncol=4, nrow=nend) # 4 cols for the 4 vals of k
+for(j in 1:4){
+  
+
+kval<-k[j]
+#generate the cluster distriubiton for the mixture distribution
+
+
+csize3end<-numeric(nend-2)
+
+for(n in 3:nend){
+  #for loop to calculate chain sizes greater than 2
+nvec<-1:(n-1)
+# gvec<-gNGeo(nvec, p, R0D, R0A) #need n-1 g derivatives
+
+#compute the inner function 1, 2,..,n-1 derivatives of inner function 
+gvec<-numeric(length(nvec))
+for(i in 1:length(nvec)) gvec[i]<-gNNB(nvec[i],  p, R0D, R0A,kval) #if statement so have to fill one by one
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+
+#use the derivatives to compute the  Bell polynomials vector of length n-1.
+
+#Faa Di Bruno's formula = sum of outer function * Bell polys of the inner function derivatives
+x1<-fNrNB(n, 1, p, R0D, R0A,kval)*BellB(n-1,1,gvec) #r=1
+
+for(i in 2:(n-1)) x1<-x1+fNrNB(n, i, p, R0D, R0A,kval)*BellB(n-1,i,head(gvec,-(i-1)))
+
+#vector of P(chain size = n)
+csize3end[n-2]<-x1/factorial(n)
+rm(x1)
+}
+#prob cluster size = 1 = Prob(cases=0)
+csize1<-(p)*(1+R0A/kval)^(-kval)+(1-p)*(1+R0D/kval)^(-kval)
+#prob cluster size = 2
+csize2<-fNrNB(2, 1, p, R0D, R0A,kval)*gNNB(1,p,R0D, R0A,kval)/2
+
+#chain size probabilities
+csizemix05[,j]<-c(csize1, csize2, csize3end)
+
+}
+
+```
+
+Put into a data frame:
+```{r}
+#data frame of chain size distribution for mixtures
+clustermix05<-data.frame(Chains=1:nend, Proportion=csizemix05[,1], k=rep(k[1],nend), Model=rep("mixture",nend), R0=rep(0.8,nend), Distribution = rep("chain",nend)) 
+for(i in 2:4) clustermix05<-bind_rows(clustermix05,data.frame(Chains=1:nend, Proportion=csizemix05[,i], k=rep(k[i],nend), Model=rep("mixture",nend), R0=rep(0.8,nend), Distribution = rep("chain",nend)))
+
+csizebase05<-matrix(NA, nrow=nend, ncol=4)
+for(i in 1:4) csizebase05[,i]<-nbinomchain(1:10, R0, k[i])
+
+clusterbase05<-data.frame(Chains=1:nend, Proportion=csizebase05[,1], k=rep(k[1],nend), Model=rep("base",nend), R0=rep(0.8,nend), Distribution = rep("chain",nend)) 
+for(i in 2:4) clusterbase05<-bind_rows(clusterbase05,data.frame(Chains=1:nend, Proportion=csizebase05[,i], k=rep(k[i],nend), Model=rep("base",nend), R0=rep(0.8,nend), Distribution = rep("chain",nend)))
+
+clusterdistrib05<-bind_rows(clusterbase05, clustermix05)
+```
+
+Plot shows that chain size distribution from a mixture is fatter tailed when $R_0>1$:
+```{r}
+ggplot(clusterdistrib05)+
+   geom_point(aes(x = Chains, y = Proportion, colour=Model))+
+  geom_line(aes(x = Chains, y = Proportion, colour=Model))+
+  facet_wrap(~k, labeller=label_both)
+```
+```{r}
+pm<-bind_rows(pmf, pmf05)
+ggplot(pm)+
+   geom_point(aes(x = Cases, y = Proportion, colour=Model))+
+  geom_line(aes(x = Cases, y = Proportion, colour=Model))+
+  facet_grid(R0~k, labeller=label_both)
+
+#cant facet across pm and chain because different variable (Cases vs Chains)
+```
+```{r}
+cluster<-bind_rows(clusterdistrib, clusterdistrib05)
+ggplot(cluster)+
+   geom_point(aes(x = Chains, y = Proportion, colour=Model))+
+  geom_line(aes(x = Chains, y = Proportion, colour=Model))+
+  facet_grid(R0~k, labeller=label_both)
+
+```
+
+## Cluster size distribution (preliminary code)
+
+
+```{r}
+
+#generate the cluster distriubiton for the mixture distribution
+p<-0.2
+R0D<-0.8
+R0A<-6.8
+kval<-1/2
+
+nend<-50 #power ie (a+b)^n #nend = number of clusters, 1,...nend
+csize32<-numeric(nend-2)
+
+for(n in 3:nend){
+  #for loop for chain sizes greater than 2
+nvec<-1:(n-1)
+# gvec<-gNGeo(nvec, p, R0D, R0A) #need n-1 g derivatives
+
+#compute the inner function 1, 2,..,n-1 derivatives of inner function 
+gvec<-numeric(length(nvec))
+for(i in 1:length(nvec)) gvec[i]<-gNNB(nvec[i],  p, R0D, R0A,kval) #if statement so have to fill one by one
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+
+#use the derivatives to compute the  Bell polynomials vector of length n-1.
+
+#Faa Di Bruno's formula = sum of outer function * Bell polys of the inner function derivatives
+x1<-fNrNB(n, 1, p, R0D, R0A,kval)*BellB(n-1,1,gvec) #r=1
+
+for(i in 2:(n-1)) x1<-x1+fNrNB(n, i, p, R0D, R0A,kval)*BellB(n-1,i,head(gvec,-(i-1)))
+
+#vector of P(chain size = n)
+csize32[n-2]<-x1/factorial(n)
+rm(x1)
+}
+#prob cluster size = 1 = Prob(cases=0)
+csize12<-(p)*(1+R0A/kval)^(-kval)+(1-p)*(1+R0D/kval)^(-kval)
+#prob cluster size = 2
+csize22<-fNrNB(2, 1, p, R0D, R0A,kval)*gNNB(1,p,R0D, R0A,kval)/2
+
+#compute chain size distribution
+csize2<-c(csize12, csize22, csize32)
+#cluster sizes conditional on extinction (divide by extinciton probability)
+#clusterthM<-data.frame(n=1:nend, p=csize2/extprobM) 
+clusterdistrib<-data.frame(n=1:nend, p=csize2) 
+
+#plot<-ggplot() + 
+#  geom_bar(data = clusterM2, aes(x = clusters, y = stat(prop))) + 
+ # geom_point(data = clusterthM, aes(x=n, y=p))+
+#  geom_line(data = clusterthM, aes(x=n, y=p))
+#plot
+#ggsave("geoclustersize.pdf", plot, width=5, height=4)
+
+```
+
+There is agreement if $k=1$ with geometric:
+
+```{r}
+
+#generate the cluster distriubiton for the mixture distribution
+p<-0.2
+R0D<-0.8
+R0A<-6.8
+kval<-1
+
+nend<-20 #power ie (a+b)^n #nend = number of clusters, 1,...nend
+csize32<-numeric(nend-2)
+
+for(n in 3:nend){
+  #the for loop should work for chain sizes greater than 2
+nvec<-1:(n-1)
+# gvec<-gNGeo(nvec, p, R0D, R0A) #need n-1 g derivatives
+
+#compute the inner function 1, 2,..,n-1 derivatives of inner function 
+gvec<-numeric(length(nvec))
+for(i in 1:length(nvec)) gvec[i]<-gNNB(nvec[i],  p, R0D, R0A,kval) #if statement so have to fill one by one
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+
+#use the derivatives to compute the  Bell polynomials vector of length n-1.
+
+x1<-fNrNB(n, 1, p, R0D, R0A,kval)*BellB(n-1,1,gvec)
+
+for(i in 2:(n-1)) x1<-x1+fNrNB(n, i, p, R0D, R0A,kval)*BellB(n-1,i,head(gvec,-(i-1)))
+
+#vector of P(chain size = n)
+csize32[n-2]<-x1/factorial(n)
+rm(x1)
+}
+#prob cluster size = 1 = Prob(cases=0)
+csize12<-(p)*(1+R0A/kval)^(-kval)+(1-p)*(1+R0D/kval)^(-kval)
+#prob cluster size = 2
+csize22<-fNrNB(2, 1, p, R0D, R0A,kval)*gNNB(1,p,R0D, R0A,kval)/2
+
+#compute chain size distribution
+csize2<-c(csize12, csize22, csize32)
+#cluster sizes conditional on extinction
+#clusterthM<-data.frame(n=1:nend, p=csize2/extprobM) 
+clusterdistribG<-data.frame(n=1:nend, p=csize2) 
+
+```
+
+```{r}
+#generate the cluster distriubiton for the mixture distribution
+p2<-0.2
+R0D2<-0.8
+R0A2<-6.8
+
+nend<-20#power ie (a+b)^n
+csize32<-numeric(nend-2)
+for(n in 3:nend){
+nvec<-1:(n-1)
+gvec<-gNGeo(nvec, p2, R0D2, R0A2) #need n-1 g derivatives
+
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+#the for loop should work for chain sizes greater than 2
+x1<-fNrGeo(n, 1, p2, R0D2, R0A2)*BellB(n-1,1,gvec)
+for(k in 2:(n-1)) x1<-x1+fNrGeo(n, k, p2, R0D2, R0A2)*BellB(n-1,k,head(gvec,-(k-1)))
+
+#vector of P(chain size = n)
+csize32[n-2]<-x1/factorial(n)
+rm(x1)
+}
+csize12<-(1-p2)/(1+R0D2)+(p2)/(1+R0A2)
+csize22<-fNrGeo(2, 1, p2, R0D2, R0A2)*gNGeo(1,p2,R0D2, R0A2)/2
+#compute chain size distribution
+csize2G<-c(csize12, csize22, csize32)
+#cluster sizes conditional on extinction
+clusterthM<-data.frame(n=1:20, p=csize2G, pk=csize2) 
+clusterthM
+```
+
