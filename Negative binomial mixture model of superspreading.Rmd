@@ -1,5 +1,7 @@
 ---
 title: "Negative binomial mixture branching process model of transmission"
+header-includes:
+   - \usepackage{amsmath}
 output: pdf_document
 ---
 
@@ -183,6 +185,41 @@ ProbabilityChainSizeLessthanEqualC<-function(C, chainsizes){
 ```
 
 
+## Key questions
+
+\begin{itemize}
+\item Does the mechanistic addition of population structure induce qualitatively different outbreak patterns from a standard superspreading model? 
+\item How does increasing the level of superspreading by a) changing the population structure e.g., by shifting the contact structure towards opportunistic contacts and away from regular contacts, and b) increasing the average number of successful contacts in the superspreading cohort affect heterogeneity in outbreak patterns, and what are the implications for containment?
+\end{itemize}
+
+## Model Assumptions
+
+We assume that infected individuals can be divided into two disjoint groups - a fraction $p$ that contribute to transmission via superspreading, and the remaining fraction of the population $1-p$ that that do not contribute to superspreading transmission. In the superspreading cohort, the mean cumulative number of contacts leading to transmission of infection per infected individual per unit time is high at $\beta_1=\beta_D + \delta$, whereas in the non-superspreading group, it is low $\beta_2=\beta_D<\beta_1$. In both groups the contact process follows a Poisson distribution with mean $\beta_i$ $i,=1,2$. Then the contact process for the entire population is a finite Poisson mixture with probability distribution,
+\begin{equation}
+\text{number of cumulative contacts per infectious individual per unit time} \sim p 
+\text{Poisson} (\beta_1 ) + (1-p) \text{Poisson} (\beta_2).
+\end{equation}
+
+In both groups, the infectious period is gamma distributed with mean $1/\gamma$ and coefficient of variation $1/\sqrt{k}$. The gamma distribution is a flexible distribution in that allows for right-skewed distributions (i.e., $k<1$) and distributions with a central tendency ($k>1$), with $k=1$ leading to the exponential distribution.  The probability generating function for the mixture follows
+\begin{align}\label{eqn:nbinommix}
+h(s) &= \int_0^\infty (p e^{\beta_1 x (s-1)}+(1-p)e^{\beta_2 x (s-1)}) \frac{(\gamma k)^k}{\Gamma(k)} x^{k-1}e^{-k \gamma x} dx \notag \\
+&=p \frac{(\gamma k)^k}{(\gamma k+\beta_1(1-s))^k}+(1-p) \frac{(\gamma k)^k}{(\gamma k+\beta_2(1-s))^k} \notag \\
+&=  p \left (\frac{1 }{(1+\frac{\beta_1}{\gamma k}(1-s))} \right )^k+(1-p) \left (\frac{1 }{(1+\frac{\beta_2}{\gamma k}(1-s))} \right )^k \notag \\
+&=  \frac{p }{(1+\frac{R_0^A}{k}(1-s))^k}+  \frac{(1-p) }{(1+\frac{R_0^D}{k}(1-s))^k}
+\end{align}
+
+Therefore equation \eqref{eqn:nbinommix} shows that a finite mixture of negative binomial distributions models a combination of close contact transmission and superspreading. The probability mass function for the number of secondary infections per generation is 
+\begin{equation}
+\text{number of secondary infections} \sim p 
+\text{Negative Binomial} (R_0^A,k ) + (1-p) \text{Negative Binomial} (R_0^D, k).
+\end{equation}
+The mean number of secondary infections is $R_0 = p R_0^A + (1-p)R_0^D$. 
+
+## Probability mass functions for baseline and mixture models
+
+Here we compare the probability mass functions of the mixture model ($R_0^D=1.1$, $p=0.1$, additional contacts $\delta =9$) with the base model for various values of $k$. The mean number of secondary infections for both models is $R_0 =2$. For the mixture models, the probability of no secondary infections is always greater than the negative binomial model with the same $R_0$ and $k$. As $k$ increases there is a greater central tendency in the number of secondary infections in the base model. 
+
+
 ```{r}
 #parameters
 k<-c(1/2, 1, 2, 4)
@@ -192,10 +229,6 @@ p<-0.1
 delta<-(R0-R0D)/p
 R0A<-R0D+delta
 ```
-
-## Probability mass function
-
-
 
 ```{r}
 nend<-10 #max chain size
@@ -222,11 +255,10 @@ ggplot(pmf)+
 
 ```
 
-<<<<<<< HEAD
-## Corresponding chain size distributions for the mixtures for each value of k:
-=======
-Generate the cluster size distributions for the mixtures for each value of k:
->>>>>>> f8750b6b95185db89a85b4f05c82d545779f8394
+## Corresponding chain size distributions 
+
+Here we compare the chain size distributions of the mixture model ($R_0^D=1.1$, $p=0.1$, additional contacts $\delta =9$) with the base model for various values of $k$. The mean number of secondary infections for both models is $R_0 =2$. The chain size distribution is fatter tailed for the mixture models compared to the corresponding base models.
+
 
 ```{r}
 nend<-10 #power ie (a+b)^n #nend = number of clusters, 1,...nend
@@ -273,11 +305,8 @@ csizemix[,j]<-c(csize1, csize2, csize3end)
 
 ```
 
-<<<<<<< HEAD
-=======
-Put into a data frame:
->>>>>>> f8750b6b95185db89a85b4f05c82d545779f8394
 ```{r}
+#Put into a data frame:
 #data frame of chain size distribution for mixtures
 clustermix<-data.frame(Chains=1:nend, Proportion=csizemix[,1], k=rep(k[1],nend), Model=rep("mixture",nend), R0=rep(2,nend), Distribution = rep("chain",nend)) 
 for(i in 2:4) clustermix<-bind_rows(clustermix,data.frame(Chains=1:nend, Proportion=csizemix[,i], k=rep(k[i],nend), Model=rep("mixture",nend), R0=rep(2,nend), Distribution = rep("chain",nend)))
@@ -291,19 +320,29 @@ for(i in 2:4) clusterbase<-bind_rows(clusterbase,data.frame(Chains=1:nend, Propo
 clusterdistrib<-bind_rows(clusterbase, clustermix)
 ```
 
-Plot shows that chain size distribution from a mixture is fatter tailed when $R_0>1$:
-<<<<<<< HEAD
 
-=======
->>>>>>> f8750b6b95185db89a85b4f05c82d545779f8394
 ```{r}
+#Plot shows that chain size distribution from a mixture is fatter tailed when $R_0>1$:
 ggplot(clusterdistrib)+
    geom_point(aes(x = Chains, y = Proportion, colour=Model))+
   geom_line(aes(x = Chains, y = Proportion, colour=Model))+
   facet_wrap(~k, labeller=label_both)
-<<<<<<< HEAD
 ```
 
+## Statistics that show hallmarks of transmission heterogeneity
+
+Hallmarks of heterogeneous transmission include:
+
+\begin{itemize}
+\item Greater variability in the number of secondary infections (fat tailed)
+\item Smaller probability of major epidemics
+\item Greater variability in chain sizes
+\item Larger probability of observing no secondary infections and of observing small chains that go extinct
+\end{itemize}
+
+Here we study the coefficient of variation of the number of secondary infections, the probability of a major outbreak, the probability of observing a small transmission chain of less than or equal to 10 cases, and the mean and coefficient of variation of small chain sizes (conditioned on extinction). 
+
+In each of the following, $p$ and $\delta$ are varied but $R_0 = R_0^D + \delta$ is fixed at $R_0 =2$. The following figures show that smaller values of $p$ (and larger values of $\delta$) lead to more heterogeneous epidemics, even if the dispersion parameter $k>1$. 
 
 ```{r}
 #parameters
@@ -370,16 +409,10 @@ bstatdata<-mutate(bstatdata,CVCases=sqrt(CaseVariance)/R0, MajorOutbreak = 1-Ext
 statdata<-bind_rows(bstatdata, mstatdata)
 ```
 
-In each of the following, $p$ and $\delta$ are varied but $R_0 = R_0^D + \delta$ is fixed at $R_0 =2$. The following figures show that smaller values of $p$ (and larger values of $\delta$) lead to more heterogeneous epidemics, even if $k>1$. Hallmarks of heterogeneous transmission include:
-
-\begin{itemize}
-\item Greater variability in the number of secondary infections (fat tailed)
-\item Smaller probability of major epidemics
-\item Greater variability in chain sizes
-\item Larger probability of observing no secondary infections and small chains that go extinct
-\end{itemize}
 
 ## CV offspring distribution
+
+There is greater variability in the number of secondary infections in the mixture model compared to the base model,even if $k>1$, with the highest variability for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
 
 ```{r}
 ggplot(statdata)+
@@ -390,6 +423,9 @@ ggplot(statdata)+
 
 ## Probability of major outbreak
 
+There is smaller probability of major epidemics in the mixture model compared to the base model, even if $k>1$, with the lowest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
+
+
 ```{r}
 ggplot(statdata)+
    geom_point(aes(x = p, y = MajorOutbreak, colour=model))+
@@ -398,6 +434,8 @@ ggplot(statdata)+
 ```
 
 ## Probability of observing a transmission chain of size <= 10
+
+There is larger probability of observing small chains that go extinct in the mixture model compared to the base model, with the highest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
 
 ```{r}
 ggplot(statdata)+
@@ -408,6 +446,8 @@ ggplot(statdata)+
 
 ## Mean chain size
 
+Mean chain sizes are larger in mixture models compared to the base model, even if $k>1$.
+
 ```{r}
 ggplot(statdata)+
    geom_point(aes(x = p, y = MeanChain, colour=model))+
@@ -417,10 +457,81 @@ ggplot(statdata)+
 
 ## CV chain size
 
+There is greater variability in chain sizes in the mixture model compared to the base model, even if $k>1$, with the highest coefficients of variation observed for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
+
 ```{r}
 ggplot(statdata)+
    geom_point(aes(x = p, y = CVChain, colour=model))+
   geom_line(aes(x = p, y = CVChain, colour=model))+
   facet_wrap(~k, labeller=label_both)
+```
+
+## Control activities
+
+Here we will study the effect of two ways of reducing $R_0$:
+\begin{itemize}
+\item[(a)] decreasing the proportion $p$ of individuals in the population with high contact rate , which may
+be considered to be the same as increasing the proportion of the population that self-isolate when sick or comply with
+stay-at-home orders, with face covering mandates or other measures that reduce the chance of transmission;
+\item [(b)] decreasing the number of additional contacts per individual in the superspreading cohort. 
+\end{itemize}
+
+In scenario (a), $p$ is reduced by multiplying it by by a factor $1-c$ (which in turn increasing the proportion in the non-superspreading cohort $1-p$ by a factor $1-c$) and in scenario (b), $\delta$ is reduced by multiplying it by by a factor $1-c$. In both control scenarios, effective $R_0$ is the same:
+\begin{equation}
+R_0^{\text{effective}} = R_0^D + (1-c) p \delta.
+\end{equation}
+
+
+```{r}
+#parameters
+control<-seq(0.01,1,0.01)
+R0D<-1.1
+R0<-2
+pval<-0.1
+deltaval<-(R0-R0D)/pval
+R0A<-R0D+deltaval
+kval<-1/2
+```
+
+```{r}
+#Calculate mixture statistics:
+nstat<-2
+mixstatdel<-matrix(NA, nrow=length(control), ncol=nstat)
+
+for(i in 1:length(control)){
+  mixstatdel[i,1]<-varNegBinommixtureoffspring((1-control[i])*pval, R0D, kval, (1-control[i])*deltaval) #variance of cases
+  mixstatdel[i,2]<-uniroot(NegBinomMixtureGen, c(0, 0.99),  p=pval, R0D=R0D, k=kval, delta=(1-control[i])*deltaval)$root #extinction probability
+} 
+
+mixstatp<-matrix(NA, nrow=length(control), ncol=nstat)
+
+for(i in 1:length(control)){
+  mixstatp[i,1]<-varNegBinommixtureoffspring((1-control[i])*pval, R0D, kval, deltaval) #variance of cases
+  mixstatp[i,2]<-uniroot(NegBinomMixtureGen, c(0, 0.99),  p=(1-control[i])*pval, R0D=R0D, k=kval, delta=deltaval)$root #extinction probability
+ 
+}  
+
+cpstatdata<-data.frame(Model="Control on superspreading proportion", Control=control, CaseVariance=mixstatp[,1], ExtinctionProbability=mixstatp[,2])
+cpstatdata<-mutate(cpstatdata, CVCases=sqrt(CaseVariance)/R0, MajorOutbreak = 1-ExtinctionProbability, p=(1-control)*pval, delta=rep(deltaval, length(control)))
+
+cdeltastatdata<-data.frame(Model="Control on additional contacts",Control=control, CaseVariance=mixstatdel[,1], ExtinctionProbability=mixstatdel[,2])
+cdeltastatdata<-mutate(cdeltastatdata, CVCases=sqrt(CaseVariance)/R0, MajorOutbreak = 1-ExtinctionProbability, p=rep(pval, length(control)), delta=(1-control)*deltaval)
+                   
+controlstat<-bind_rows(cpstatdata, cdeltastatdata)                   
+
+```
+
+
+Here we show that control actions that act to reduce the proportion of superspreaders $p$ in the population lead to greater heterogeneity in outbreaks (i.e., higher coefficient of variation in secondary infections and higher extinction probability) than reducing the number of additional contacts $\delta$. While reducing $p$ increases the probability of extinction, it also has the less desirable effect of increasing stochastic variation in outbreaks (e.g., coefficient of variation of secondary infections).
+
+```{r}
+ggplot(controlstat)+
+   geom_point(aes(x = Control, y = CVCases, colour=Model))+
+  geom_line(aes(x = Control, y = CVCases, colour=Model))
+```
+```{r}
+ggplot(controlstat)+
+   geom_point(aes(x = Control, y = ExtinctionProbability, colour=Model))+
+  geom_line(aes(x = Control, y = ExtinctionProbability, colour=Model))
 ```
 
