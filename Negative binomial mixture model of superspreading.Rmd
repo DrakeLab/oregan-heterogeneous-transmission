@@ -423,6 +423,4 @@ ggplot(statdata)+
   geom_line(aes(x = p, y = CVChain, colour=model))+
   facet_wrap(~k, labeller=label_both)
 ```
-=======
-```
->>>>>>> f8750b6b95185db89a85b4f05c82d545779f8394
+
