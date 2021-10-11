@@ -222,7 +222,11 @@ ggplot(pmf)+
 
 ```
 
+<<<<<<< HEAD
 ## Corresponding chain size distributions for the mixtures for each value of k:
+=======
+Generate the cluster size distributions for the mixtures for each value of k:
+>>>>>>> f8750b6b95185db89a85b4f05c82d545779f8394
 
 ```{r}
 nend<-10 #power ie (a+b)^n #nend = number of clusters, 1,...nend
@@ -269,6 +273,10 @@ csizemix[,j]<-c(csize1, csize2, csize3end)
 
 ```
 
+<<<<<<< HEAD
+=======
+Put into a data frame:
+>>>>>>> f8750b6b95185db89a85b4f05c82d545779f8394
 ```{r}
 #data frame of chain size distribution for mixtures
 clustermix<-data.frame(Chains=1:nend, Proportion=csizemix[,1], k=rep(k[1],nend), Model=rep("mixture",nend), R0=rep(2,nend), Distribution = rep("chain",nend)) 
@@ -284,12 +292,16 @@ clusterdistrib<-bind_rows(clusterbase, clustermix)
 ```
 
 Plot shows that chain size distribution from a mixture is fatter tailed when $R_0>1$:
+<<<<<<< HEAD
 
+=======
+>>>>>>> f8750b6b95185db89a85b4f05c82d545779f8394
 ```{r}
 ggplot(clusterdistrib)+
    geom_point(aes(x = Chains, y = Proportion, colour=Model))+
   geom_line(aes(x = Chains, y = Proportion, colour=Model))+
   facet_wrap(~k, labeller=label_both)
+<<<<<<< HEAD
 ```
 
 
@@ -411,3 +423,6 @@ ggplot(statdata)+
   geom_line(aes(x = p, y = CVChain, colour=model))+
   facet_wrap(~k, labeller=label_both)
 ```
+=======
+```
+>>>>>>> f8750b6b95185db89a85b4f05c82d545779f8394
