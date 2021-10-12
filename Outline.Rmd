@@ -1,0 +1,41 @@
+---
+title: "Negative binomial mixture branching process model of transmission: Manuscript outline"
+header-includes:
+   - \usepackage{amsmath}
+output: pdf_document
+---
+
+## Introduction
+- Does the mechanistic addition of population structure induce qualitatively different outbreak patterns from a standard negative binomial superspreading model with mean $R_0$ and dispersion parameter $k$ assuming $R_0>1$? 
+\item How does decreasing the level of superspreading by a) changing the population structure e.g., by shifting the contact structure away from opportunistic encounters/aerosol transmission and towards regular contacts/direct contact transmission, and b) decreasing the average number of successful contacts in the superspreading cohort affect heterogeneity in outbreak patterns, and what are the implications for containment?
+
+## Model
+- Model assumptions and derivation
+- probability generating function
+- Figure 1: comparison of probability mass functions for standard and mixture models for various values of $k$
+- formulas for mean, variance, CV of number of secondary infections 
+
+## Probability generating function 
+- equation for probability of extinction
+- meaning of $R_0^*$ when $R_0>1$
+
+## Chain size distribution
+- Derivation
+- Figure 2: comparison of chain size distributions for standard and mixture models for various values of $k$
+- mean chain size conditioned on extinction 
+- variance of chain size conditioned on extinction 
+
+## Numerical studies (assuming $R_0$ > 1)
+- How statistics vary with $p$, $\delta$ and $k$, keeping $R_0$ fixed, for the baseline and mixture models (compare the degree of heterogeneity in outbreak patterns)
+- Effect of control activities on outbreak patterns: decrease $p$ and $\delta$ by factor $1-c$ and study their effect on coefficient of variation of secondary infections and probability of extinction (which control activity induces greatest probability of extinction and do patterns become more heterogeneous as epidemic control is applied?)
+
+## Results
+- Figure 3: Coefficient of variation of distribution of secondary infections
+- Figure 4: Probability of major outbreak
+- Figure 5: Probability of observing a transmission chain of size <= 10
+- Figure 6: Mean chain size 
+- Figure 7: CV chain size
+- Figure 8: Control vs. Coefficient of variation of distribution of secondary infections and  control vs. probability of extinction
+
+## Discussion
+
