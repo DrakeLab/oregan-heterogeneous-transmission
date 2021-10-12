@@ -194,26 +194,32 @@ ProbabilityChainSizeLessthanEqualC<-function(C, chainsizes){
 
 ## Model Assumptions
 
-We assume that infected individuals can be divided into two disjoint groups - a fraction $p$ that contribute to transmission via superspreading, and the remaining fraction of the population $1-p$ that that do not contribute to superspreading transmission. In the superspreading cohort, the mean cumulative number of contacts leading to transmission of infection per infected individual per unit time is high at $\beta_1=\beta_D + \delta$, whereas in the non-superspreading group, it is low $\beta_2=\beta_D<\beta_1$. In both groups the contact process follows a Poisson distribution with mean $\beta_i$ $i,=1,2$. Then the contact process for the entire population is a finite Poisson mixture with probability distribution,
+We assume that infected individuals can be divided into two disjoint groups - a fraction $p$ that contribute to transmission via superspreading, and the remaining fraction of the population $1-p$ that that do not contribute to superspreading transmission. In the superspreading cohort, the mean cumulative number of contacts leading to transmission of infection per infected individual per unit time is high at $\beta_1=\beta_D + \delta$, whereas in the non-superspreading group, it is low $\beta_2=\beta_D<\beta_1$. In both groups the contact process follows a Poisson distribution with mean $\beta_i$ $i,=1,2$. Then the contact process for the entire population is a finite Poisson mixture with random variates,
 \begin{equation}
 \text{number of cumulative contacts per infectious individual per unit time} \sim p 
 \text{Poisson} (\beta_1 ) + (1-p) \text{Poisson} (\beta_2).
 \end{equation}
 
-In both groups, the infectious period is gamma distributed with mean $1/\gamma$ and coefficient of variation $1/\sqrt{k}$. The gamma distribution is a flexible distribution in that allows for right-skewed distributions (i.e., $k<1$) and distributions with a central tendency ($k>1$), with $k=1$ leading to the exponential distribution.  The probability generating function for the mixture follows
+In both groups,we assume the infectious period is gamma distributed with mean $1/\gamma$ and coefficient of variation $1/\sqrt{k}$ with probability density function
+\begin{equation*}
+f(x) = \frac{(\gamma k)^k}{\Gamma(k)} x^{k-1}e^{-k \gamma x}
+\end{equation*}
+The gamma distribution is flexible in that allows for right-skewed distributions (i.e., $k<1$) and distributions with a central tendency ($k>1$), with $k=1$ leading to the exponential distribution.  The probability generating function for the mixture follows
 \begin{align}\label{eqn:nbinommix}
-h(s) &= \int_0^\infty (p e^{\beta_1 x (s-1)}+(1-p)e^{\beta_2 x (s-1)}) \frac{(\gamma k)^k}{\Gamma(k)} x^{k-1}e^{-k \gamma x} dx \notag \\
+h(s) &= \int_0^\infty \left (p e^{\beta_1 x (s-1)}+(1-p)e^{\beta_2 x (s-1)} \right) \frac{(\gamma k)^k}{\Gamma(k)} x^{k-1}e^{-k \gamma x} dx \notag \\
 &=p \frac{(\gamma k)^k}{(\gamma k+\beta_1(1-s))^k}+(1-p) \frac{(\gamma k)^k}{(\gamma k+\beta_2(1-s))^k} \notag \\
 &=  p \left (\frac{1 }{(1+\frac{\beta_1}{\gamma k}(1-s))} \right )^k+(1-p) \left (\frac{1 }{(1+\frac{\beta_2}{\gamma k}(1-s))} \right )^k \notag \\
-&=  \frac{p }{(1+\frac{R_0^A}{k}(1-s))^k}+  \frac{(1-p) }{(1+\frac{R_0^D}{k}(1-s))^k}
+&=  \frac{p }{(1+\frac{R_0^A}{k}(1-s))^k}+  \frac{(1-p) }{(1+\frac{R_0^D}{k}(1-s))^k},
 \end{align}
 
-Therefore equation \eqref{eqn:nbinommix} shows that a finite mixture of negative binomial distributions models a combination of close contact transmission and superspreading. The probability mass function for the number of secondary infections per generation is 
+where $R_0^D=\beta_2/\gamma=\beta_D/\gamma$ and $R_0^A=\beta_1/\gamma=(\beta_D+\delta)/\gamma$. Therefore equation \eqref{eqn:nbinommix} shows that a finite mixture of negative binomial distributions models a combination of close contact transmission and superspreading. The number of secondary infections per generation is obtained from
 \begin{equation}
 \text{number of secondary infections} \sim p 
 \text{Negative Binomial} (R_0^A,k ) + (1-p) \text{Negative Binomial} (R_0^D, k).
 \end{equation}
-The mean number of secondary infections is $R_0 = p R_0^A + (1-p)R_0^D$. 
+The mean number of secondary infections is $R_0 = p R_0^A + (1-p)R_0^D = R_0^D + p \delta$. 
+
+We compare the mixture model with a baseline negative binomial model with the same $R_0$ and dispersion parameter $k$.
 
 ## Probability mass functions for baseline and mixture models
 
@@ -342,7 +348,7 @@ Hallmarks of heterogeneous transmission include:
 
 Here we study the coefficient of variation of the number of secondary infections, the probability of a major outbreak, the probability of observing a small transmission chain of less than or equal to 10 cases, and the mean and coefficient of variation of small chain sizes (conditioned on extinction). 
 
-In each of the following, $p$ and $\delta$ are varied but $R_0 = R_0^D + \delta$ is fixed at $R_0 =2$. The following figures show that smaller values of $p$ (and larger values of $\delta$) lead to more heterogeneous epidemics, even if the dispersion parameter $k>1$. 
+In each of the following, $p$ and $\delta$ are varied but $R_0 = R_0^D + p \delta$ is fixed at $R_0 =2$. The following figures show that smaller values of $p$ (and larger values of $\delta$) lead to more heterogeneous epidemics, even if the dispersion parameter $k>1$. 
 
 ```{r}
 #parameters
@@ -412,7 +418,7 @@ statdata<-bind_rows(bstatdata, mstatdata)
 
 ## CV offspring distribution
 
-There is greater variability in the number of secondary infections in the mixture model compared to the base model,even if $k>1$, with the highest variability for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
+There is greater variability in the number of secondary infections in the mixture model compared to the base model, even if $k>1$, with the highest variability for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
 
 ```{r}
 ggplot(statdata)+
