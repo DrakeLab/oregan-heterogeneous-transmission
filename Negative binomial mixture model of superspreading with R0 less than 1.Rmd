@@ -187,12 +187,9 @@ ProbabilityChainSizeLessthanEqualC<-function(C, chainsizes){
 ```
 
 
-## Key questions
+## Key question
 
-\begin{itemize}
-\item Does the mechanistic addition of population structure induce qualitatively different outbreak patterns from a standard superspreading model when $R_0<1$? 
-\item How does increasing the level of superspreading by a) changing the population structure e.g., by shifting the contact structure towards opportunistic contacts and away from regular contacts, and b) increasing the average number of successful contacts in the superspreading cohort affect heterogeneity in outbreak patterns, and what are the implications for containment?
-\end{itemize}
+- Does the mechanistic addition of population structure induce qualitatively different outbreak patterns from a standard superspreading model when $R_0<1$? 
 
 ## Model Assumptions
 
@@ -222,6 +219,10 @@ where $R_0^D=\beta_2/\gamma=\beta_D/\gamma$ and $R_0^A=\beta_1/\gamma=(\beta_D+\
 The mean number of secondary infections is $R_0 = p R_0^A + (1-p)R_0^D = R_0^D + p \delta$. 
 
 We compare the mixture model with a baseline negative binomial model with the same $R_0$ and dispersion parameter $k$.
+
+## Numerical studies (assuming $R_0 < 1$)
+- How statistics vary with $p$, $\delta$ and $k$, keeping $R_0$ fixed, for the baseline and mixture models (compare the degree of heterogeneity in outbreak patterns)
+
 
 ## Probability mass functions for baseline and mixture models
 

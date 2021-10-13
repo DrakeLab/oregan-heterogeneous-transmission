@@ -189,7 +189,8 @@ ProbabilityChainSizeLessthanEqualC<-function(C, chainsizes){
 
 \begin{itemize}
 \item Does the mechanistic addition of population structure induce qualitatively different outbreak patterns from a standard superspreading model? 
-\item How does increasing the level of superspreading by a) changing the population structure e.g., by shifting the contact structure towards opportunistic contacts and away from regular contacts, and b) increasing the average number of successful contacts in the superspreading cohort affect heterogeneity in outbreak patterns, and what are the implications for containment?
+\item How does decreasing the level of superspreading by a) changing the population structure e.g., by shifting the contact structure away from opportunistic encounters/aerosol transmission and towards regular contacts/direct contact transmission, and b) decreasing the average number of successful contacts in the superspreading cohort affect heterogeneity in outbreak patterns, and what are the implications for containment?
+
 \end{itemize}
 
 ## Model Assumptions
@@ -220,6 +221,8 @@ where $R_0^D=\beta_2/\gamma=\beta_D/\gamma$ and $R_0^A=\beta_1/\gamma=(\beta_D+\
 The mean number of secondary infections is $R_0 = p R_0^A + (1-p)R_0^D = R_0^D + p \delta$. 
 
 We compare the mixture model with a baseline negative binomial model with the same $R_0$ and dispersion parameter $k$.
+
+
 
 ## Probability mass functions for baseline and mixture models
 
@@ -350,6 +353,15 @@ Here we study the coefficient of variation of the number of secondary infections
 
 In each of the following, $p$ and $\delta$ are varied but $R_0 = R_0^D + p \delta$ is fixed at $R_0 =2$. The following figures show that smaller values of $p$ (and larger values of $\delta$) lead to more heterogeneous epidemics, even if the dispersion parameter $k>1$. 
 
+## Numerical studies (assuming $R_0$ > 1)
+
+To compare output of the standard negative binomial model and finite mixture negative binomial model, we calculated various summary statistics. We set the mean number of secondary infections per individual $R_0$ to 2 in both models. To explore the impact of variability in infectious period distributions in the standard and mixture models, the dispersion parameter $k$ was varied between $1/2$ and $4$. To study the impact of transmission from a combination of regular and superspreading cohorts,  we varied $p$ and $\delta$ in the mixture model while keeping the basic reproduction number fixed at $R_0 = R_0^D + p \delta = 2$. The superspreading proportion $p$ was varied between $0.01$ and $1$ and the number of additional contacts $\delta = (R_0 -R_0^D)/p$ was simultaneously adjusted to retain $R_0=2$. As $p$ increases, the number of additional contacts declines, i.e., a low proportion of superspreaders need to have a high additional contact rate. 
+
+Outbreaks that have hallmarks of superspreading include high variability in the number of secondary infections per infected individual, small probability of major epidemics, high variability in transmission chain sizes, high probability of observing no secondary infections per infected individual and high probability of observing small transmission chains. To compare variability in the number of secondary infections per infected individual in the standard negative binomial model and finite mixture negative binomial model, we computed the coefficient of variation of seceondary infections. To compare variability in transmission chain sizes in the standard negative binomial model and finite mixture negative binomial model, we computed the mean and coefficient of variation of chain sizes. To compare probabilities of observing small transmission chains in the standard negative binomial model and finite mixture negative binomial model, we used the chain size distributions to compute the probability of observing a chain consisting of less than or equal to 10 cases.  To compare probabilities of a major epidemic, we used the probability generating functions to compute the probability of extinction numerically.
+
+
+  
+
 ```{r}
 #parameters
 k<-c(1/2, 1, 2, 4)
@@ -418,7 +430,7 @@ statdata<-bind_rows(bstatdata, mstatdata)
 
 ## CV offspring distribution
 
-There is greater variability in the number of secondary infections in the mixture model compared to the base model, even if $k>1$, with the highest variability for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
+
 
 ```{r}
 ggplot(statdata)+
@@ -426,10 +438,10 @@ ggplot(statdata)+
   geom_line(aes(x = p, y = CVCases, colour=model))+
   facet_wrap(~k, labeller=label_both)
 ```
+\textbf{Figure 3.} Coefficient of variation of secondary infections in the mixture model is highest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The coefficient of variation of secondary infections in the mixture model decreases as $p$ increases and approaches the value of the standard model as $p$ approaches 1. There is greater variability in the number of secondary infections in the mixture model compared to the base model, even if $k>1$, with the highest variability for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
 
 ## Probability of major outbreak
 
-There is smaller probability of major epidemics in the mixture model compared to the base model, even if $k>1$, with the lowest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
 
 
 ```{r}
@@ -438,10 +450,11 @@ ggplot(statdata)+
   geom_line(aes(x = p, y = MajorOutbreak, colour=model))+
   facet_wrap(~k, labeller=label_both)
 ```
+\textbf{Figure 4.} There is smaller probability of major epidemics in the mixture model compared to the base model, even if $k>1$, with the lowest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
 
 ## Probability of observing a transmission chain of size <= 10
 
-There is larger probability of observing small chains that go extinct in the mixture model compared to the base model, with the highest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
+ 
 
 ```{r}
 ggplot(statdata)+
@@ -449,10 +462,11 @@ ggplot(statdata)+
   geom_line(aes(x = p, y = ProbabilityChainSizeLessEqual10, colour=model))+
   facet_wrap(~k, labeller=label_both)
 ```
+\textbf{Figure 5.} There is larger probability of observing small chains that go extinct in the mixture model compared to the base model, with the highest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts.
 
 ## Mean chain size
 
-Mean chain sizes are larger in mixture models compared to the base model, even if $k>1$.
+Fatter tail in the chain size distribution conditioned on extinction (i.e. restricting to small transmission chains that go extinct) will make the mean chain size conditioned on extinction larger. Perhaps not a true hallmark of superspreading but it is indicative of fatter tailed chain size distributions.
 
 ```{r}
 ggplot(statdata)+
@@ -460,10 +474,10 @@ ggplot(statdata)+
   geom_line(aes(x = p, y = MeanChain, colour=model))+
   facet_wrap(~k, labeller=label_both)
 ```
+\textbf{Figure 6.} Mean chain sizes are larger in mixture models compared to the base model, even if $k>1$.
 
 ## CV chain size
 
-There is greater variability in chain sizes in the mixture model compared to the base model, even if $k>1$, with the highest coefficients of variation observed for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
 
 ```{r}
 ggplot(statdata)+
@@ -471,14 +485,21 @@ ggplot(statdata)+
   geom_line(aes(x = p, y = CVChain, colour=model))+
   facet_wrap(~k, labeller=label_both)
 ```
+\textbf{Figure 7.} There is greater variability in chain sizes in the mixture model compared to the base model, even if $k>1$, with the highest coefficients of variation observed for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
 
 ## Control activities
+
+We study the effect of targeted control activities on the superspreading cohort. Control effort is denoted by $c$, $0\leq c\leq 1$ where $c=0$ implies the application of no control effort and $c=1$ indicates full control of superspreading transmission. We firstly alter population structure by reducing $p$ (thereby increasing $1-p$) by a factor $1-c$ while keeping all other parameters fixed. Secondly, we reduce the individual reproduction number by decreasing the number of additional contacts $\delta$ by a factor $1-c$ while keeping all other parameters fixed..  Both strategies lead the same effective $R_0$,
+\begin{equation*}\label{eqn:effectiveR0}
+R_0 = R_0^D + (1-c) p \delta.
+\end{equation*}
+When $c=1$, effective $R_0$ is the same as $R_0^d$, the basic reproduction number of the pathogen in the regular transmission cohort. To answer the questions of which control activity induces the greatest probability of extinction and whether patterns become more heterogeneous as epidemic control $c$ is applied, we start with $R_0 = R_0^D + p \delta = 2$, decrease each of $p$ and $\delta$ by a factor $1-c$ in increments of 0.01 and examine their effect on the coefficient of variation of secondary infections and the probability of extinction.
 
 Here we will study the effect of two ways of reducing $R_0$:
 \begin{itemize}
 \item[(a)] decreasing the proportion $p$ of individuals in the population with high contact rate , which may
 be considered to be the same as increasing the proportion of the population that self-isolate when sick or comply with
-stay-at-home orders, with face covering mandates or other measures that reduce the chance of transmission;
+stay-at-home orders, comply with face covering mandates or other measures that reduce the chance of transmission;
 \item [(b)] decreasing the number of additional contacts per individual in the superspreading cohort. 
 \end{itemize}
 
