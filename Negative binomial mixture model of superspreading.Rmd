@@ -450,9 +450,9 @@ ggplot(statdata)+
   geom_line(aes(x = p, y = MajorOutbreak, colour=model))+
   facet_wrap(~k, labeller=label_both)
 ```
-\textbf{Figure 4.} There is smaller probability of major epidemics in the mixture model compared to the base model, even if $k>1$, with the lowest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
+\textbf{Figure 4.}Probability of a major outbreak in the mixture model is lowest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The probability of a major outbreak in the mixture model increases as $p$ increases and approaches the value of the standard model as $p$ approaches 1. There is smaller probability of major epidemics in the mixture model compared to the base model, even if $k>1$, with the lowest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
 
-## Probability of observing a transmission chain of size <= 10
+## Probability of observing a transmission chain of size $\leq$ 10
 
  
 
@@ -462,7 +462,7 @@ ggplot(statdata)+
   geom_line(aes(x = p, y = ProbabilityChainSizeLessEqual10, colour=model))+
   facet_wrap(~k, labeller=label_both)
 ```
-\textbf{Figure 5.} There is larger probability of observing small chains that go extinct in the mixture model compared to the base model, with the highest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts.
+\textbf{Figure 5.} Probability of observing a transmission chain of size $\leq$ 10 in the mixture model is highest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The probability decreases as $p$ increases and approaches the value of the standard model as $p$ approaches 1. There is larger probability of observing small chains that go extinct in the mixture model compared to the base model, with the highest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts.
 
 ## Mean chain size
 
@@ -474,7 +474,7 @@ ggplot(statdata)+
   geom_line(aes(x = p, y = MeanChain, colour=model))+
   facet_wrap(~k, labeller=label_both)
 ```
-\textbf{Figure 6.} Mean chain sizes are larger in mixture models compared to the base model, even if $k>1$.
+\textbf{Figure 6.}  Mean chain sizes are largest for large dispersion parameter $k$, small $p$ and large number of additional contacts. Mean chain sizes decrease as $p$ increases and approaches the value of the standard model as $p$ approaches 1. Mean chain sizes are larger in mixture models compared to the base model, even if $k>1$.
 
 ## CV chain size
 
@@ -485,38 +485,60 @@ ggplot(statdata)+
   geom_line(aes(x = p, y = CVChain, colour=model))+
   facet_wrap(~k, labeller=label_both)
 ```
-\textbf{Figure 7.} There is greater variability in chain sizes in the mixture model compared to the base model, even if $k>1$, with the highest coefficients of variation observed for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
+\textbf{Figure 7.} Coefficient of variation of transmission chain sizes in the mixture model is highest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The coefficient of variation of small chains that go extinct in the mixture model decreases as $p$ increases and approaches the value of the standard model as $p$ approaches 1.There is greater variability in chain sizes in the mixture model compared to the base model, even if $k>1$, with the highest coefficients of variation observed for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
 
 ## Control activities
 
-We study the effect of targeted control activities on the superspreading cohort. Control effort is denoted by $c$, $0\leq c\leq 1$ where $c=0$ implies the application of no control effort and $c=1$ indicates full control of superspreading transmission. We firstly alter population structure by reducing $p$ (thereby increasing $1-p$) by a factor $1-c$ while keeping all other parameters fixed. Secondly, we reduce the individual reproduction number by decreasing the number of additional contacts $\delta$ by a factor $1-c$ while keeping all other parameters fixed..  Both strategies lead the same effective $R_0$,
-\begin{equation*}\label{eqn:effectiveR0}
-R_0 = R_0^D + (1-c) p \delta.
-\end{equation*}
-When $c=1$, effective $R_0$ is the same as $R_0^d$, the basic reproduction number of the pathogen in the regular transmission cohort. To answer the questions of which control activity induces the greatest probability of extinction and whether patterns become more heterogeneous as epidemic control $c$ is applied, we start with $R_0 = R_0^D + p \delta = 2$, decrease each of $p$ and $\delta$ by a factor $1-c$ in increments of 0.01 and examine their effect on the coefficient of variation of secondary infections and the probability of extinction.
-
-Here we will study the effect of two ways of reducing $R_0$:
+Here we will study the effect of three ways of reducing $R_0$:
 \begin{itemize}
 \item[(a)] decreasing the proportion $p$ of individuals in the population with high contact rate , which may
 be considered to be the same as increasing the proportion of the population that self-isolate when sick or comply with
 stay-at-home orders, comply with face covering mandates or other measures that reduce the chance of transmission;
-\item [(b)] decreasing the number of additional contacts per individual in the superspreading cohort. 
+\item [(b)] decreasing the number of additional contacts per individual in the superspreading cohort 
+\item [(c)] decreasing baseline transmission rate in both groups by reducing $R_0^D$, e.g., both groups wear face coverings. 
 \end{itemize}
 
-In scenario (a), $p$ is reduced by multiplying it by by a factor $1-c$ (which in turn increasing the proportion in the non-superspreading cohort $1-p$ by a factor $1-c$) and in scenario (b), $\delta$ is reduced by multiplying it by by a factor $1-c$. In both control scenarios, effective $R_0$ is the same:
-\begin{equation}
-R_0^{\text{effective}} = R_0^D + (1-c) p \delta.
+We firstly study the effect of targeted control activities on the superspreading cohort. Control effort is denoted by $c$, $0\leq c\leq 1$ where $c=0$ implies the application of no control effort and $c=1$ indicates full control of superspreading transmission. We firstly alter population structure by reducing $p$ (thereby increasing $1-p$) by a factor $1-c$ while keeping all other parameters fixed. Secondly, we reduce the individual reproduction number by decreasing the number of additional contacts $\delta$ by a factor $1-c$ while keeping all other parameters fixed..  Both strategies lead the same effective $R_0$,
+\begin{equation}\label{eqn:effectiveR0S}
+R_{0e}^{S} = R_0^D + (1-c) p \delta.
 \end{equation}
+When $c=1$, effective $R_0$ is the same as $R_0^d$, the basic reproduction number of the pathogen in the regular transmission cohort. If $R_0 > 1$, the threshold control effort for elimination when control is limited to the superspreading cohort is 
+\begin{equation}\label{eqn:thresholdS}
+c^{S} = 1 -\frac{ (1-R_0^D)}{p \delta}    = \frac{R_0-1}{p \delta} =\frac{R_0-1}{R_0-R_0^D}, \quad 0< c^{S} \leq 1
+\end{equation}
+and therefore the pathogen can only be eliminated in the entire population if $R_0^D < 1$, i.e., the regular cohort cannot sustain the infection alone. 
+
+
+We can also study the effect of mitigation measures on both cohorts, by reducing $R_0^D$ by a factor $1-c$. This leads to a different effective $R_0$,
+\begin{equation}\label{eqn:effectiveR0SR}
+R_{0e}^{SR} = (1-c) R_0^D + p \delta, 
+\end{equation}
+and different expression for threshold control effort,
+\begin{equation}\label{eqn:thresholdSR}
+c^{SR} = 1 -\frac{ (1-p \delta)}{R_0^D} = \frac{R_0-1}{R_0^D}, \quad 0 < c^{SR} \leq 1.
+\end{equation}
+In this case, if $c=1$, then $R_{0e}^{SR} = p \delta$, and elimination of the disease in the entire population can only be achieved provided $p \delta = R_0 - R_D < 1$, i.e., the superspreading cohort cannot have too many additional contacts, or the proportion of superspreaders cannot be too large. Equation \ref{eqn:thresholdS} and  equation \ref{eqn:thresholdSR} are equal if and only if $R_0 = 2 R_0^D$, or equivalently $R_0^D = p \delta$. If $R_0< 2 R_0^D$ (i.e., $p\delta <R_0^D$) then $c^{SR}<c^{S}$ and targeting control activities towards both groups leads to a lower threshold for elimination. On the other hand, if $R_0>2R_0^D$ (i.e., $p \delta > R_0^D$) then $c^{S}< c^{SR}$ and targeting control activities towards the superspreading cohort only induces more efficient elimination.
+
+Comparing the effective $R_0$s, if $p \delta < R_0^D$ (i.e., superspreaders contribute little to $R_0$), control activities that target both groups is a more effective strategy than targeting superspreaders alone since $R_{0e}^{SC} < R_{0e}^{S}$.   On the other hand, if $p\delta > R_0^D$, $R_{0e}^{S} < R_{0e}^{SC}$ and so targeting superspreading reduces $R_0$ more than targeting both groups with control. 
+
+To study how control activities impact heterogeneity in outbreaks, we examine the variance to mean ratio of the number of secondary infections. We expect that if control efforts focus on actions that reduce $p$ or $\delta$, heteroegeneity in outbreaks should decline with the level of control effort because the sources of heterogeneity and superspreading are being targeted. On the other hand, if both groups are subject to control activity with regular transmission $R_0^D$ being targeted (and therefore $R_0^A=R_0^D + \delta$ also targeted), the influence of superspreaders may dominate outbreak patterns.
+
+Examining the variance to mean ratio at maximum control effort $c=1$ under each control activity, if superspreading only is targeted, the variance to mean ratio is $1+R_0^D/k$ whereas if both groups are targeted, it is $1+\delta/k + \delta(1-p)$. Clearly if $\delta > R_0^D$ then the variance to mean ratio for control applied to both groups is larger than that for superspreading only, whereas if $\delta$ is very small, the variance to mean ratio for both group control is close to one. 
+
+To answer the question of how control activity affects heterogeneity in outbreak patterns as epidemic control $c$ is applied, we would like the threshold for extinction to be the same for both activities. We start with $R_0^D = 0.9 <1$, which guarantees extinction for targeted control because the threshold will be less than one. We choose $R_0 = 2 R_0^D = 1.8$, which means that $p \delta = 0.9 <1$, so extinction will be guaranteed if control to both groups is applied. We choose $p = 0.1$ and $\delta = 9$. In this scenario, effective $R_0$ (equations \ref{eqn:effectiveR0S} and \ref{eqn:effectiveR0SR}) is the same for all three strategies. Then we decrease each of $R_0^D$, $p$ and $\delta$ by a factor $1-c$ in increments of 0.01 and examine their effect on the variance to mean ratio of secondary infections and the probability of extinction.
+
+
+
 
 
 ```{r}
-#parameters
+# baseline parameters before control
 control<-seq(0.01,1,0.01)
-R0D<-1.1
-R0<-2
+R0Dval<-0.9
+R0<-1.8
 pval<-0.1
-deltaval<-(R0-R0D)/pval
-R0A<-R0D+deltaval
+deltaval<-(R0-R0Dval)/pval
+R0A<-R0Dval+deltaval
 kval<-1/2
 ```
 
@@ -526,30 +548,43 @@ nstat<-2
 mixstatdel<-matrix(NA, nrow=length(control), ncol=nstat)
 
 for(i in 1:length(control)){
-  mixstatdel[i,1]<-varNegBinommixtureoffspring((1-control[i])*pval, R0D, kval, (1-control[i])*deltaval) #variance of cases
-  mixstatdel[i,2]<-uniroot(NegBinomMixtureGen, c(0, 0.99),  p=pval, R0D=R0D, k=kval, delta=(1-control[i])*deltaval)$root #extinction probability
+  mixstatdel[i,1]<-varNegBinommixtureoffspring(pval, R0Dval, kval, (1-control[i])*deltaval) #variance of cases
+  mixstatdel[i,2]<-tryCatch(uniroot(NegBinomMixtureGen, c(0, 0.9999),  p=pval, R0D=R0Dval, k=kval, delta=(1-control[i])*deltaval)$root, error=function(e) return(uniroot(NegBinomMixtureGen, c(0, 1),  p=pval, R0D=R0Dval, k=kval, delta=(1-control[i])*deltaval)$root))#extinction probability
+    #uniroot(NegBinomMixtureGen, c(0, 1),  p=pval, R0D=R0Dval, k=kval, delta=(1-control[i])*deltaval)$root #extinction probability
 } 
 
 mixstatp<-matrix(NA, nrow=length(control), ncol=nstat)
 
 for(i in 1:length(control)){
-  mixstatp[i,1]<-varNegBinommixtureoffspring((1-control[i])*pval, R0D, kval, deltaval) #variance of cases
-  mixstatp[i,2]<-uniroot(NegBinomMixtureGen, c(0, 0.99),  p=(1-control[i])*pval, R0D=R0D, k=kval, delta=deltaval)$root #extinction probability
- 
+  mixstatp[i,1]<-varNegBinommixtureoffspring((1-control[i])*pval, R0Dval, kval, deltaval) #variance of cases
+  mixstatp[i,2]<- tryCatch(uniroot(NegBinomMixtureGen, c(0, 0.9999),  p=(1-control[i])*pval, R0D=R0Dval, k=kval, delta=deltaval)$root, error=function(e) return(uniroot(NegBinomMixtureGen, c(0, 1),  p=(1-control[i])*pval, R0D=R0Dval, k=kval, delta=deltaval)$root))#extinction probability
+  #uniroot(NegBinomMixtureGen, c(0, 1),  p=(1-control[i])*pval, R0D=R0Dval, k=kval, delta=deltaval, extendInt = "yes")$root
+}  
+
+mixstatR0D<-matrix(NA, nrow=length(control), ncol=nstat)
+
+for(i in 1:length(control)){
+  mixstatR0D[i,1]<-varNegBinommixtureoffspring(pval, (1-control[i])*R0Dval, kval, deltaval) #variance of cases
+  mixstatR0D[i,2]<-tryCatch(uniroot(NegBinomMixtureGen, c(0, 0.9999),  p=pval, R0D=(1-control[i])*R0Dval, k=kval, delta=deltaval)$root, error=function(e) return(uniroot(NegBinomMixtureGen, c(0, 1),  p=pval, R0D=(1-control[i])*R0Dval, k=kval, delta=deltaval)$root))#extinction probability #if c>c*, then probability = 1. Need to change uniroot to (0,0.99) #could make two separate vectors c<c* and c>=c* applying uniroot on each of the intervals
+ #tryCatch(uniroot(NegBinomMixtureGen, c(0, 0.99),  p=(1-0.9)*pval, R0D=R0Dval, k=kval, delta=deltaval)$root, error=function(e) return(uniroot(NegBinomMixtureGen, c(0, 1),  p=(1-0.9)*pval, R0D=R0Dval, k=kval, delta=deltaval)$root))
+  #uniroot(NegBinomMixtureGen, c(0, 1),  p=pval, R0D=(1-control[i])*R0Dval, k=kval, delta=deltaval)$root
 }  
 
 cpstatdata<-data.frame(Model="Control on superspreading proportion", Control=control, CaseVariance=mixstatp[,1], ExtinctionProbability=mixstatp[,2])
-cpstatdata<-mutate(cpstatdata, CVCases=sqrt(CaseVariance)/R0, MajorOutbreak = 1-ExtinctionProbability, p=(1-control)*pval, delta=rep(deltaval, length(control)))
+cpstatdata<-mutate(cpstatdata, MajorOutbreak = 1-ExtinctionProbability, R0D=rep(R0Dval, length(control)), p=(1-control)*pval, delta=rep(deltaval, length(control)), EffectiveR0=R0Dval + p*deltaval,VarMeanRatio=CaseVariance/EffectiveR0, CVCases=sqrt(CaseVariance)/EffectiveR0)
 
 cdeltastatdata<-data.frame(Model="Control on additional contacts",Control=control, CaseVariance=mixstatdel[,1], ExtinctionProbability=mixstatdel[,2])
-cdeltastatdata<-mutate(cdeltastatdata, CVCases=sqrt(CaseVariance)/R0, MajorOutbreak = 1-ExtinctionProbability, p=rep(pval, length(control)), delta=(1-control)*deltaval)
+cdeltastatdata<-mutate(cdeltastatdata, MajorOutbreak = 1-ExtinctionProbability,R0D=rep(R0Dval, length(control)), p=rep(pval, length(control)), delta=(1-control)*deltaval, EffectiveR0=R0Dval + pval*delta,VarMeanRatio=CaseVariance/EffectiveR0, CVCases=sqrt(CaseVariance)/EffectiveR0)
+
+cR0Dstatdata<-data.frame(Model="Control on both groups",Control=control, CaseVariance=mixstatR0D[,1], ExtinctionProbability=mixstatR0D[,2])
+cR0Dstatdata<-mutate(cR0Dstatdata, MajorOutbreak = 1-ExtinctionProbability, R0D=(1-control)*R0Dval, p=rep(pval, length(control)), delta=rep(deltaval, length(control)), EffectiveR0=R0D + pval*deltaval,VarMeanRatio=CaseVariance/EffectiveR0, CVCases=sqrt(CaseVariance)/EffectiveR0)
                    
-controlstat<-bind_rows(cpstatdata, cdeltastatdata)                   
+controlstat<-bind_rows(cpstatdata, cdeltastatdata, cR0Dstatdata)                   
 
 ```
 
 
-Here we show that control actions that act to reduce the proportion of superspreaders $p$ in the population lead to greater heterogeneity in outbreaks (i.e., higher coefficient of variation in secondary infections and higher extinction probability) than reducing the number of additional contacts $\delta$. While reducing $p$ increases the probability of extinction, it also has the less desirable effect of increasing stochastic variation in outbreaks (e.g., coefficient of variation of secondary infections).
+Here we show that control strategies have different impacts on probability of extinction and variance to mean ratio as a function of control effort even when the threshold for extinction is the same for all three strategies ($c^S = c^{SR} = 8/9$). Control actions that act on both groups lead to greater heterogeneity in outbreaks (i.e., higher variance to mean ratio and coefficient of variation in secondary infections) than control measures that act on superspreaders only (e.g., reducing the number of additional contacts $\delta$ and reducing the proportion of superspreaders $p$). 
 
 ```{r}
 ggplot(controlstat)+
@@ -560,5 +595,10 @@ ggplot(controlstat)+
 ggplot(controlstat)+
    geom_point(aes(x = Control, y = ExtinctionProbability, colour=Model))+
   geom_line(aes(x = Control, y = ExtinctionProbability, colour=Model))
+```
+```{r}
+ggplot(controlstat)+
+   geom_point(aes(x = Control, y = VarMeanRatio, colour=Model))+
+  geom_line(aes(x = Control, y = VarMeanRatio, colour=Model))
 ```
 

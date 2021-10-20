@@ -450,4 +450,59 @@ ggplot(statdata)+
   geom_line(aes(x = p, y = CVChain, colour=model))+
   facet_wrap(~k, labeller=label_both)
 ```
+## Control activities if $R_0>1$
+
+
+```{r}
+#parameters
+control<-seq(0.01,1,0.01)
+R0D<-1.1
+R0<-2
+pval<-0.1
+deltaval<-(R0-R0D)/pval
+R0A<-R0D+deltaval
+kval<-1/2
+```
+
+```{r}
+#Calculate mixture statistics:
+nstat<-2
+mixstatdel<-matrix(NA, nrow=length(control), ncol=nstat)
+
+for(i in 1:length(control)){
+  mixstatdel[i,1]<-varNegBinommixtureoffspring((1-control[i])*pval, R0D, kval, (1-control[i])*deltaval) #variance of cases
+  mixstatdel[i,2]<-uniroot(NegBinomMixtureGen, c(0, 0.99),  p=pval, R0D=R0D, k=kval, delta=(1-control[i])*deltaval)$root #extinction probability
+} 
+
+mixstatp<-matrix(NA, nrow=length(control), ncol=nstat)
+
+for(i in 1:length(control)){
+  mixstatp[i,1]<-varNegBinommixtureoffspring((1-control[i])*pval, R0D, kval, deltaval) #variance of cases
+  mixstatp[i,2]<-uniroot(NegBinomMixtureGen, c(0, 0.99),  p=(1-control[i])*pval, R0D=R0D, k=kval, delta=deltaval)$root #extinction probability
+ 
+}  
+
+cpstatdata<-data.frame(Model="Control on superspreading proportion", Control=control, CaseVariance=mixstatp[,1], ExtinctionProbability=mixstatp[,2])
+cpstatdata<-mutate(cpstatdata, CVCases=sqrt(CaseVariance)/R0, MajorOutbreak = 1-ExtinctionProbability, p=(1-control)*pval, delta=rep(deltaval, length(control)))
+
+cdeltastatdata<-data.frame(Model="Control on additional contacts",Control=control, CaseVariance=mixstatdel[,1], ExtinctionProbability=mixstatdel[,2])
+cdeltastatdata<-mutate(cdeltastatdata, CVCases=sqrt(CaseVariance)/R0, MajorOutbreak = 1-ExtinctionProbability, p=rep(pval, length(control)), delta=(1-control)*deltaval)
+                   
+controlstat<-bind_rows(cpstatdata, cdeltastatdata)                   
+
+```
+
+
+Here we show that control actions that act to reduce the proportion of superspreaders $p$ in the population lead to greater heterogeneity in outbreaks (i.e., higher coefficient of variation in secondary infections and higher extinction probability) than reducing the number of additional contacts $\delta$. While reducing $p$ increases the probability of extinction, it also has the less desirable effect of increasing stochastic variation in outbreaks (e.g., coefficient of variation of secondary infections).
+
+```{r}
+ggplot(controlstat)+
+   geom_point(aes(x = Control, y = CVCases, colour=Model))+
+  geom_line(aes(x = Control, y = CVCases, colour=Model))
+```
+```{r}
+ggplot(controlstat)+
+   geom_point(aes(x = Control, y = ExtinctionProbability, colour=Model))+
+  geom_line(aes(x = Control, y = ExtinctionProbability, colour=Model))
+```
 
