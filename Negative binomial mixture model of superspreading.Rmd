@@ -257,11 +257,11 @@ for(i in 2:4) bdatapmf<-bind_rows(bdatapmf,data.frame(Cases=0:10, Proportion=bas
 
 pmf<-bind_rows(bdatapmf, mdatapmf)
 
-ggplot(pmf)+
+pmfplot<-ggplot(pmf)+
    geom_point(aes(x = Cases, y = Proportion, colour=Model))+
   geom_line(aes(x = Cases, y = Proportion, colour=Model))+
   facet_wrap(~k, labeller=label_both)
-
+#ggsave("Figure1.pdf", pmfplot, height=4, width=5)
 ```
 
 ## Corresponding chain size distributions 
@@ -493,7 +493,7 @@ Here we will study the effect of three ways of reducing $R_0$:
 \begin{itemize}
 \item[(a)] decreasing the proportion $p$ of individuals in the population with high contact rate , which may
 be considered to be the same as increasing the proportion of the population that self-isolate when sick or comply with
-stay-at-home orders, comply with face covering mandates or other measures that reduce the chance of transmission;
+stay-at-home orders/physical distancing, comply with face covering mandates or other measures that reduce the chance of transmission;
 \item [(b)] decreasing the number of additional contacts per individual in the superspreading cohort 
 \item [(c)] decreasing baseline transmission rate in both groups by reducing $R_0^D$, e.g., both groups wear face coverings. 
 \end{itemize}
