@@ -181,7 +181,7 @@ The basic reproduction number $R_0$ of the mixture branching process (\eqref{eqn
 %\beta^S p k (\gamma k)^k (\gamma k + \beta^S(1-s))^{-k-1} + \beta (1-p) k (\gamma k)^k (\gamma k + \beta (1-s))^{-k-1}
 %\beta^S p k (\gamma k)^k (\gamma k )^{-k-1} + \beta (1-p) k (\gamma k)^k (\gamma k )^{-k-1}
 %\beta^S p k (\gamma k )^{-1} + \beta (1-p) k  (\gamma k )^{-1}
-\begin{equation}
+\begin{equation}\label{eqn:R0}
    R_0= G_N'(1) = p\frac{ \beta^S }{\gamma } +(1-p)\frac{ \beta }  {\gamma  } = p R_0^S + (1-p) R_0^R.%\frac{p(\gamma k)^k}{(\gamma k + \beta^S(1-s))^k} +   \frac{(1-p)(\gamma k)^k}{(\gamma k + \beta(1-s))^k}.
 \end{equation}
 Evaluating $\frac{1}{j!} \frac{d^j}{ds^j} G_N(0) |_{s=0}$ $j=0,1,2\dots$ yields the probability mass function for the number of secondary infections with parameters $p$, $k$, $R_0^S$ and $R_0^R$,
@@ -192,6 +192,8 @@ Evaluating $\frac{1}{j!} \frac{d^j}{ds^j} G_N(0) |_{s=0}$ $j=0,1,2\dots$ yields 
 %say this is a finite mixture of negative binomials
 Equation \eqref{eqn:nbinommixpmf} is a finite mixture of negative binomial distributions that combines regular transmission and superspreading. %together with a realistic distribution for the infectious period
 The model is flexible in that it allows for a variety of infectious histories including having extremely high risk of superspreading transmission to others (e.g., high contact rate and long infectious period), high risk of superspreading transmission to others (e.g., high contact rate and fast recovery rate), moderate risk of being a superspreader (e.g., low contact rate and long infectious period) and being characterized by regular transmission (e.g., low contact rate and fast recovery rate). Therefore, model \eqref{eqn:nbinommixpmf} for the offspring distribution more accurately captures a spectrum of infectious histories than the standard negative binomial model with mean $R_0$ and dispersion parameter $k$. 
+
+To examine the influence of having two contact processes with different intensities in the mixture model compared with having just one on the probability distribution, we compare the probability mass functions of the the mixture model \eqref{eqn:nbinommixpmf} with the standard (base) model with same $R_0$ and dispersion parameter $k$ in Figure \ref{fig:pmf}. The probability of an infectious individual producing no secondary infections ($P(N=0)$) is higher in the mixture models than the base model for all values of $k$. As $k$ increases, the level of heterogeneity declines in that $P(N=0)$ declines in both models, but the base model has a greater central tendency than the mixture model. In sum, there are visible differences in the probability mass functions of both models, and we conclude that having a mixture of two contact processes substantially affects the probability mass function. 
 
 %Even though the evolution of an epidemic in continuous time may be
 %accounted for in a one-type CMJ-process, all such processes have a
@@ -219,29 +221,36 @@ The model is flexible in that it allows for a variety of infectious histories in
 \begin{figure}[!t] %F1
 \centering\includegraphics {Figure1.pdf}
 \caption{Probability mass functions of the mixture model ($R_0^D=1.1$, $p=0.1$, additional contacts $\delta =9$) compared with those of base model with the same $R_0$ and dispersion parameter $k$. The mean number of secondary infections for both models is $R_0 =2$. For the mixture models, the probability of no secondary infections is always greater than the negative binomial model with the same $R_0$ and $k$. As $k$ increases there is a greater central tendency in the number of secondary infections in the base model.  }
-\label{approxeig}\vspace*{-9pt}
+\label{fig:pmf}\vspace*{-9pt}
 \end{figure}
 
 %%where does base model go?
 
+%our model shows we have a finite linear mixture of two negative binomial processes with different means but the same dispersion parameter k
 
 \subsection{Statistics} %does this need a subsection
-Equation \eqref{eqn:nbinommixpgf} can be used to find the basic reproduction number $R_0$, i.e., the mean number of secondary infections per infectious individual per generation,  
-%\beta^S p k (\gamma k)^k (\gamma k + \beta^S(1-s))^{-k-1} + \beta (1-p) k (\gamma k)^k (\gamma k + \beta (1-s))^{-k-1}
-%\beta^S p k (\gamma k)^k (\gamma k )^{-k-1} + \beta (1-p) k (\gamma k)^k (\gamma k )^{-k-1}
-%\beta^S p k (\gamma k )^{-1} + \beta (1-p) k  (\gamma k )^{-1}
+
+%need to define R0 in terms of p and delta. 
+Noting that $R_0^R = \beta/\gamma$,  we can rewrite $R_0^S$ in terms of $R_0^R$,
 \begin{equation}
-   R_0= G_N'(1) = p\frac{ \beta^S }{\gamma } +(1-p)\frac{ \beta }  {\gamma  } = p R_0^S + (1-p) R_0^R.%\frac{p(\gamma k)^k}{(\gamma k + \beta^S(1-s))^k} +   \frac{(1-p)(\gamma k)^k}{(\gamma k + \beta(1-s))^k}.
+R_0^S = \frac{\beta + \tilde{\delta}}{\gamma} = \frac{\beta}{\gamma} + \frac{ \tilde{\delta}}{\gamma} = R_0^R + \delta. 
 \end{equation}
+Rewriting the basic reproduction number $R_0$ in terms of $\delta$, the expression for the average number of secondary infections due to additional contacts $\tilde{\delta}$ simplifies to 
+\begin{equation}\label{eqn:R0delta}
+R_0 = R_0^R + p \delta,
+\end{equation}
+which lies between $R_0^R$ and $R_0^S$ if $0<p<1$. 
 % do I need formal definition of R0?
-
-%%finish this section with figure 1. Follow up with statistics, then probability of extinction 
-
+The variance of the number of secondary infections according to the mixture model is %P146 of notes
+\begin{equation}\label{eqn:variance}
+V(N) = G_N''(1) + G_N'(1) -  (G_N'(1))^2= R_0^R + \frac{(R_0^R)^2}{k} + p \delta \left [ (1+ \delta(1-p) + \frac{2 R_0^R + \delta}{k}. 
+\end{equation}
+If $p=0$, then $V(N) = R_0^R + (R_0^R)^2/k$ and if $p=1$, $V(N) = R_0^S + (R_0^S)^2/k$, i.e., equation \eqref{eqn:variance} lies between the two extremes if $0<p<1$. The variance is an increasing function of $R_0^R$ and an increasing function of $\delta$ provided $0<p<1$. However $V(N)$ is a quadratic function of $p$.
 
 %Heesterbeek: when during a time interval of length deltaT contacts are made according to a Poisson process with rate c, the number of contacts follows the Poisson distribution with mean parameter c deltaT. When contacts lead to successful transmission the number of 'successful' contacts is again Poisson distributed with mean parameter p c deltaT. 
 
 %in other words intensity (rate per unit time) is a random variable with 2 values beta and beta^S with probability (1-p) and p respectively
-
+%%finish this section with figure 1. Follow up with statistics, then probability of extinction 
 \comment{
 \begin{align*}
 P(5 \text{ secondary infections }) &= P( \text{ 5 secondary infections from infectious individual in superspreading cohort}) \\&\text{ or } P( \text{ 5 secondary infections from infectious individual in regular cohort })\\
