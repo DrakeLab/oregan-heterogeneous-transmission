@@ -1,6 +1,10 @@
 ---
 title: "Superspreading negative binomial simulations"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -25,11 +29,36 @@ NegBinmixturedeviate<- function(m, p, R0D, k, delta) {
   R0A<-R0D +delta
   deviate<-numeric(m) #number of deviates
   for(i in 1:m){
-deviate[i]<-ifelse(rbinom(1, size=1, prob = p)==1, rnbinom(1,R0A, k), rnbinom(1,R0D, k))
+deviate[i]<-ifelse(rbinom(1, size=1, prob = p)==1, rnbinom(1,mu=R0A, size=k), rnbinom(1,mu=R0D, size=k))
   }
   return(deviate)
 }
 
+NegBinmixturebranch<- function(n,p, R0D, k, delta) {
+  #Arguments:
+  #n = number of generations
+  #Returns number of cases per generation as a vector
+  #Uses Poissonmixturedeviate to generate random variates from mixture distribution
+  
+	z <- c(1,rep(0,n))#one infected case in generation 0 
+	for (i in 2:(n+1)) {
+z[i]<-ifelse(z[i-1]==0, 0, sum(NegBinmixturedeviate(z[i-1], p=p, R0D=R0D, k=k, delta=delta)))	  
+			}
+			return(z)
+			}
+
+NegBinbranch<- function(n,R0, k) {
+  #Arguments:
+  #n = number of generations
+  #Returns number of cases per generation as a vector
+  #Uses Poissonmixturedeviate to generate random variates from mixture distribution
+  
+	z <- c(1,rep(0,n))#one infected case in generation 0 
+	for (i in 2:(n+1)) {
+z[i]<-ifelse(z[i-1]==0, 0, sum(rnbinom(z[i-1],mu=R0,size=k)))	  
+			}
+			return(z)
+			}
 
 NegBinbranchw <- function(R0,k) {
   #returns n = the number of generations that it takes to have a cluster greater than 50 from a Poisson mixture offspring distribution
@@ -40,7 +69,7 @@ NegBinbranchw <- function(R0,k) {
 	cluster<-sum(z)
 	while(cluster<50){
 	    i<-n+1
-			z[i] <- sum(rnbinom(z[i-1],R0,k))
+			z[i] <- sum(rnbinom(z[i-1],mu=R0,size=k))
 			cluster<-cluster+z[i]
       n<-n+1
       if(z[i]==0){
@@ -104,6 +133,103 @@ z[i] <- sum(rmixture(z[i-1], probs = c(p, 1-p), models = expression(rpois(R0D), 
 			}
 
 ```
+
+
+```{r}
+mydata<-data.frame(cases=NegBinmixturedeviate(100000, p=0.1, R0D=1.1, k=0.5,delta=(2-1.1)/0.1))
+data<-data.frame(cases=rnbinom(100000, mu=2, size=0.5))
+combdat<-bind_rows(list(Mixture=mydata,Baseline=data),
+                           .id="model")
+ggplot(combdat,aes(cases,y=stat(prop),fill=model))+
+   scale_fill_manual(values=c("red","blue"))+
+  geom_bar(alpha=0.5,position = 'identity') 
+```
+
+```{r}
+count(mydata, cases)
+```
+If $p$ is small but $\delta$ is large, then the range of cases is large.
+
+Now we wish to plot typical chains.
+Probability of a major outbreak for mixture model is about 0.1.
+```{r}
+nsims<-10
+ngen=10
+sims<-matrix(NA, ncol=nsims, nrow=ngen+1)
+for(i in 1:nsims) sims[,i]<-NegBinmixturebranch(ngen,p=0.1, R0D=1.1, k=0.5, delta=9) 
+sims
+```
+Probability of a major outbreak for standard model is about 0.4. Here four have taken off, but none are as large as the mixture that has taken off
+```{r}
+nsims<-10
+ngen=10
+bsims<-matrix(NA, ncol=nsims, nrow=ngen+1)
+for(i in 1:nsims) bsims[,i]<-NegBinbranch(ngen, R0=2, k=0.5) 
+bsims
+```
+Plot the mixture chains assuming $k=1/2:
+```{r}
+ngenmax<-4
+simdf<-data.frame(Chain = sims[1:(ngenmax+1),1], ChainNum = "1", Generation=0:ngenmax)
+chainnum<-c("2", "3", "4", "5", "6", "7", "8", "9", "10")
+for(i in 2:nsims) simdf<-bind_rows(simdf, data.frame(Chain=sims[1:(ngenmax+1),i], ChainNum = chainnum[i-1], Generation=0:ngenmax))
+```
+
+```{r}
+ggplot(simdf)+
+   geom_point(aes(x = Generation, y = Chain, colour=ChainNum))+
+  geom_line(aes(x = Generation, y = Chain, colour=ChainNum))
+```
+```{r}
+nsims<-10
+ngen=10
+sims<-matrix(NA, ncol=nsims, nrow=ngen+1)
+for(i in 1:nsims) sims[,i]<-NegBinmixturebranch(ngen,p=0.1, R0D=1.1, k=2, delta=9) 
+sims
+```
+Plot the mixture chains assuming $k=2:
+```{r}
+ngenmax<-8
+simdf<-data.frame(Chain = sims[1:(ngenmax+1),1], ChainNum = "1", Generation=0:ngenmax)
+chainnum<-c("2", "3", "4", "5", "6", "7", "8", "9", "10")
+for(i in 2:nsims) simdf<-bind_rows(simdf, data.frame(Chain=sims[1:(ngenmax+1),i], ChainNum = chainnum[i-1], Generation=0:ngenmax))
+```
+
+```{r}
+ggplot(simdf)+
+   geom_point(aes(x = Generation, y = Chain,colour=ChainNum))+
+  geom_line(aes(x = Generation, y = Chain, colour=ChainNum))+
+  scale_colour_grey(start = 0, end = .9) +
+  theme_bw()
+```
+
+```{r}
+ggplot(simdf)+
+   geom_point(aes(x = Generation, y = Chain, colour=ChainNum))+
+  geom_line(aes(x = Generation, y = Chain, colour=ChainNum))
+```
+```{r}
+nsims<-10
+ngen=10
+bsims<-matrix(NA, ncol=nsims, nrow=ngen+1)
+for(i in 1:nsims) bsims[,i]<-NegBinbranch(ngen, R0=2, k=2) 
+bsims
+```
+```{r}
+nsims<-10000
+ngen=10
+sims<-matrix(NA, ncol=nsims, nrow=ngen+1)
+for(i in 1:nsims) sims[,i]<-NegBinmixturebranch(ngen,p=0.1, R0D=1.1, k=2, delta=9) 
+```
+
+```{r}
+ngenmax<-8
+simdf<-data.frame(Chain = sims[1:(ngenmax+1),1], ChainNum = "1", Generation=0:ngenmax)
+chainnum<-paste0("", 1:nsims)
+for(i in 2:nsims) simdf<-bind_rows(simdf, data.frame(Chain=sims[1:(ngenmax+1),i], ChainNum = chainnum[i-1], Generation=0:ngenmax))
+#View(simdf%>%filter(Generation==8 & Chain==0))
+```
+
 
 
 ```{r}

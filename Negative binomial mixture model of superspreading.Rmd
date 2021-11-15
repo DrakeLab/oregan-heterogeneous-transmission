@@ -18,6 +18,23 @@ knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
 
 
 ```{r}
+NegBinmixturedeviate<- function(m, p, R0D, k, delta) {  
+  #Returns a vector of m neg binom mixture deviates
+  # Assumes a finite mixture of two Poisson distributions, with prob p and 1-p respectively, 0<p<1
+  #1 = success = aerosol
+  #0 = failure = direct contact
+  #rbinom = one bernoulli trial for direct transmission
+  #n = number of observations = 1
+  #size = number of trials =1 (bernoulli) per observation
+  #if success, deviate = rnbinom(R0A, k) otherwise rnbinom(R0D, k)
+  R0A<-R0D +delta
+  deviate<-numeric(m) #number of deviates
+  for(i in 1:m){
+deviate[i]<-ifelse(rbinom(1, size=1, prob = p)==1, rnbinom(1,mu=R0A, size=k), rnbinom(1,mu=R0D, size=k))
+  }
+  return(deviate)
+}
+
 R0fn<-function(p, R0D, R0A){
 R0<- p*R0D+(1-p)*R0A
 }
@@ -222,7 +239,61 @@ The mean number of secondary infections is $R_0 = p R_0^A + (1-p)R_0^D = R_0^D +
 
 We compare the mixture model with a baseline negative binomial model with the same $R_0$ and dispersion parameter $k$.
 
+## Offspring distribution
 
+
+```{r}
+
+pval<-c(0.05, 0.1, 0.15, 0.2)
+
+#mix data is negative binomial mixture model, R0=2, R0D, p as above dispersion parameter = k
+mixsim<-matrix(NA, nrow=10000, ncol=4)
+for(i in 1:4) mixsim[,i]<-NegBinmixturedeviate(10000, p=pval[i], R0D=1.1, k=0.5,delta=(2-1.1)/pval[i])
+
+#make a pmf data frame with columns = cases, proportions, dispersion parameters, model type
+mdatasim<-data.frame(Cases=mixsim[,1], p=rep(pval[1],10000), Model=rep("mixture",10000), delta=(2-1.1)/pval[1])
+for(i in 2:4) mdatasim<-bind_rows(mdatasim,data.frame(Cases=mixsim[,i], p=rep(pval[i],10000), Model=rep("mixture",10000), delta=(2-1.1)/pval[i]))
+
+bdatasim<-data.frame(Cases=rnbinom(10000, mu=2, size=0.5),  p=rep(1,10000), Model=rep("base",10000), delta=(2-1.1))
+
+
+sim05<-bind_rows(bdatasim, mdatasim)
+sim05<-mutate(sim05, R0A=1.1+delta)
+mdatasim<-mutate(mdatasim, R0A=1.1+delta)
+```
+
+
+
+```{r}
+ggplot(mdatasim, aes(x = Cases, y = stat(prop), fill=p))+
+  geom_bar(position = 'identity')+
+  facet_wrap(~R0A, labeller=label_both)
+```
+
+Compare negative binomial with $R_0=2$, $p=0.1$, $k=1/2$ with standard model, $R_0=2$, $k=1/2$:
+
+```{r}
+mydata<-data.frame(cases=NegBinmixturedeviate(100000, p=0.1, R0D=1.1, k=0.5,delta=(2-1.1)/0.1))
+data<-data.frame(cases=rnbinom(100000, mu=2, size=0.5))
+combdat<-bind_rows(list(Mixture=mydata,Baseline=data),
+                           .id="model")
+ggplot(combdat,aes(cases,y=stat(prop),fill=model))+
+   scale_fill_manual(values=c("red","blue"))+
+  geom_bar(alpha=0.5,position = 'identity') +
+  ggtitle("k=1/2")
+```
+Compare negative binomial with $R_0=2$, $p=0.1$, $k=2$ with standard model, $R_0=2$, $k=2$. Similar to probability mass function for $k=2$ (below)
+
+```{r}
+mydata<-data.frame(cases=NegBinmixturedeviate(100000, p=0.1, R0D=1.1, k=2,delta=(2-1.1)/0.1))
+data<-data.frame(cases=rnbinom(100000, mu=2, size=2))
+combdat<-bind_rows(list(Mixture=mydata,Baseline=data),
+                           .id="model")
+ggplot(combdat,aes(cases,y=stat(prop),fill=model))+
+   scale_fill_manual(values=c("red","blue"))+
+  geom_bar(alpha=0.5,position = 'identity') +
+  ggtitle("k=2")
+```
 
 ## Probability mass functions for baseline and mixture models
 
@@ -257,7 +328,7 @@ for(i in 2:4) bdatapmf<-bind_rows(bdatapmf,data.frame(Cases=0:10, Proportion=bas
 
 pmf<-bind_rows(bdatapmf, mdatapmf)
 
-pmfplot<-ggplot(pmf)+
+ggplot(pmf)+
    geom_point(aes(x = Cases, y = Proportion, colour=Model))+
   geom_line(aes(x = Cases, y = Proportion, colour=Model))+
   facet_wrap(~k, labeller=label_both)
