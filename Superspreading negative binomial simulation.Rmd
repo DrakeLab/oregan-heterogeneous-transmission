@@ -1,10 +1,6 @@
 ---
 title: "Superspreading negative binomial simulations"
-output:
-  html_document:
-    df_print: paged
-  html_notebook: default
-  pdf_document: default
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -151,6 +147,53 @@ count(mydata, cases)
 If $p$ is small but $\delta$ is large, then the range of cases is large.
 
 Now we wish to plot typical chains.
+
+First lets look at the mean size of small (clusters < 10) and large clusters (>10).
+The median clusters are typically bigger in the standard model than the mixture model but the mean is smaller, and mean chain sizes conditioned on extinction are similar in both models. If chopping the chain should condition on extinction/non-extinction?
+```{r}
+nsims<-1000
+ngen=10
+cluster<-numeric(nsims)
+for(i in 1:nsims) cluster[i]<-sum(NegBinmixturebranch(ngen,p=0.1, R0D=1.1, k=0.5, delta=9)) 
+c(mean(cluster[which(cluster>=10)]), range(cluster[which(cluster>=10)]))
+median(cluster[which(cluster>=10)])
+mean(cluster[which(cluster<10)])
+```
+```{r}
+nsims<-1000
+ngen=10
+bcluster<-numeric(nsims)
+for(i in 1:nsims) bcluster[i]<-sum(NegBinbranch(ngen, R0=2, k=0.5)) 
+c(mean(bcluster[which(bcluster>=10)]), range(bcluster[which(bcluster>=10)]))
+median(bcluster[which(bcluster>=10)])
+mean(bcluster[which(bcluster<10)])
+```
+```{r}
+nsims<-1000
+ngen=20
+bcluster<-numeric(nsims)
+for(i in 1:nsims) bcluster[i]<-sum(NegBinbranch(ngen, R0=0.87, k=0.5)) 
+mean(bcluster[which(bcluster>=10)])
+median(bcluster[which(bcluster>=10)])
+mean(bcluster[which(bcluster<10)])
+```
+```{r}
+nsims<-1000
+ngen=20
+cluster<-numeric(nsims)
+for(i in 1:nsims) cluster[i]<-sum(NegBinmixturebranch(ngen,p=0.1, R0D=0.5, k=0.5, delta=1)) 
+mean(cluster[which(cluster>=10)])
+median(cluster[which(cluster>=10)])
+mean(cluster[which(cluster<10)])
+```
+
+```{r}
+nsims<-10
+ngen=20
+sims<-matrix(NA, ncol=nsims, nrow=ngen+1)
+for(i in 1:nsims) sims[,i]<-NegBinmixturebranch(ngen,p=0.1, R0D=0.8, k=0.5, delta=1) 
+sims
+```
 Probability of a major outbreak for mixture model is about 0.1.
 ```{r}
 nsims<-10
@@ -159,7 +202,7 @@ sims<-matrix(NA, ncol=nsims, nrow=ngen+1)
 for(i in 1:nsims) sims[,i]<-NegBinmixturebranch(ngen,p=0.1, R0D=1.1, k=0.5, delta=9) 
 sims
 ```
-Probability of a major outbreak for standard model is about 0.4. Here four have taken off, but none are as large as the mixture that has taken off
+Probability of a major outbreak for standard model is about 0.4. Here four have taken off, but none are as large as the mixture that has taken off?
 ```{r}
 nsims<-10
 ngen=10

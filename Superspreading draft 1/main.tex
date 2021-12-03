@@ -139,6 +139,7 @@ Transmission mode (e.g., aerosol vs. droplet transmission)   &Biological  \\[3pt
 Symptomatology (e.g. shedding at high rates vs. low rates) &  Biological
 \\[3pt]
 Compliance behaviors (e.g., self-isolation when sick vs. no self isolation)   &Behavioral \\[3pt]
+Vaccination status (i.e., vaccinated vs. not vaccinated) & Behavioral\\[3pt]
 Susceptibility (e.g., having underlying health conditions or not, smoker/non-smoker) & Biological/Behavioral\\[3pt]
 Micro-level continuous &  \\[3pt]
 Symptomatology (infectiousness affecting probability of infection given contact) & Biological \\[3pt]
@@ -247,9 +248,9 @@ R_0 = R_0^R + p \delta,
 which lies between $R_0^R$ and $R_0^S$ if $0<p<1$. 
 % do I need formal definition of R0?
 The variance of the number of secondary infections according to the mixture model is %P146 of notes
-\begin{equation}\label{eqn:variance}
-V(N) = G_N''(1) + G_N'(1) -  (G_N'(1))^2= R_0^R + \frac{(R_0^R)^2}{k} + p \delta \left [ (1+ \delta(1-p) + \frac{2 R_0^R + \delta}{k} \right ]. 
-\end{equation}
+\begin{align}\label{eqn:variance}
+V(N) &= G_N''(1) + G_N'(1) -  (G_N'(1))^2 \notag \\ &= \frac{k+1}{k} \left (p (R_0^S)^2 + (1-p) (R_0^R)^2  \right ) +R_0(1-R_0)\notag\\ &=R_0^R + \frac{(R_0^R)^2}{k} + p \delta \left [ 1+ \delta(1-p) + \frac{2 R_0^R + \delta}{k} \right ]. 
+\end{align}
 If $p=0$, then $V(N) = R_0^R + (R_0^R)^2/k$ and if $p=1$, $V(N) = R_0^S + (R_0^S)^2/k$, i.e., equation \eqref{eqn:variance} lies between the two extremes if $0<p<1$. The variance is an increasing function of $R_0^R$ and an increasing function of $\delta$ provided $0<p<1$. However $V(N)$ is a quadratic function of $p$, and it is increasing if $0\leq p \leq 1/2$.
 
 %Heesterbeek: when during a time interval of length deltaT contacts are made according to a Poisson process with rate c, the number of contacts follows the Poisson distribution with mean parameter c deltaT. When contacts lead to successful transmission the number of 'successful' contacts is again Poisson distributed with mean parameter p c deltaT. 
@@ -298,9 +299,94 @@ When $R_0<1$, then $s^* = 1$ and a major outbreak cannot occur. If $R_0>1$, eith
 %equation for probability of extinction
 % meaning of $R_0^*$ when $R_0>1$
 
-\subsection{Chain size distribution}
+\subsection{Calculating the chain size distribution}
 
-To quantify transmission chains, we need the chain size distribution. To derive it, we follow the method in \citet{Blumberg2013-xv}. 
+
+
+To quantify transmission chains, we need the chain size distribution. To derive it, we follow the method in \citet{Blumberg2013-xv}, which relies upon the derivatives of powers of the generating function \eqref{eqn:Poissonmixgen}. We summarize the derivation of the formula for the chain size distribution below. 
+
+For every transmission chain of size $y$ there are $y$ individuals that cause $y-1$ infections. For example, assuming the number of secondary infections per infectious individual per generation $i$ is a non-negative random variable $a_i$, then for a chain size of 1, the index case gives rise to no secondary infections, and $\{a_1\} = \{ 0\}$. For a chain size of 2, the first individual (i.e., the index case) gives rise to one secondary infection and the second infected individual does not infect anyone. Then the ordered sequence of secondary infections per infected individual comprising the chain is $\{a_1, a_2\} = \{1, 0\}$. For a chain size of three, the index case gives rise to either one infection or two infections. The sequence of secondary infections either follows $\{a_1, a_2, a_3\} = \{2, 0, 0\}$ or $\{a_1, a_2, a_3\} = \{1, 1, 0\}$. %would be good to have a figure of chain sizes, infection sequences, and probabilities
+
+%put sum into separate lines
+
+Now the probability generating function $Q(s)$ for the sum of $y$ independent and identically distributed random variables $a_i$ with the same probability generating function $G(s)$ is $Q(s) = (G(s))^y$. The probability that $y$ random variables $a_i$ sum up to $y-1$ is the coefficient of $s^{y-1}$ of $Q(s)$. To obtain the transmission chain of size $y$ we need the $(y-1)^{th}$ coefficient of $Q(s)$, but the coefficient is not the same as the probability of a chain having size $y$, because as pointed out above, the order of the infections matter. For example, for a chain size of 2, we require the coefficient of $s$ in the probability generating function $(G(s))^2 = (\sum_{i=0}^\infty p_i s^i)^2$, which is $2 p_1 p_0$. These probabilities correspond to two possible sequences that sum up to 1: $\{a_1 ,a_2\} = \{1, 0\}$ and $\{a_1', a_2'\} = \{0 ,1\}$. For a stuttering chain of size 2, only the former is an admissible sequence of secondary infections, and we note that the latter inadmissible sequence is a cyclic permutation of the first. Therefore, to obtain the probability of a chain size of 2, we need to divide $2 p_1 p_0$ by 2. Similarly, for a chain size of 3, we need the coefficient of $s^2$ of $(G(s))^3$, which is $3p_2 p_0 + 3 p_1^2 p_0$, which we divide by 3 to find the probability of a chain size of 3.  This holds generally: out of the cyclic permutations of a non-negative sequence $\{a_1, a_2,\dots,a_y\}$ with $\sum_{i=1}^y a_i = y-1$, only one will be a valid transmission sequence (Theorem 1 in the supplement of \citet{Blumberg2013-xv}). Therefore we need to divide $(G(s))^y$ by $y$. In sum, to find the probability of a chain size of $y$, we find the $(y-1)^{th}$ coefficient of $1/y (G(s))^{y-1} $. The $(y-1)^{th}$ coefficient is found by differentiating $1/y (G(s))^{y-1} $ $y-1$ times and evaluating the derivative at $s=0$. 
+
+%Next we outline how to find the derivatives of $G(s)^y$.%before then outlining them for our problem
+
+The derivatives of $Q(s) = (G(s))^y$ can be found using the chain rule for differentiation. The $n^{th}$ derivative of the inner function $g(s) = G(s)$ evaluated at $s=0$ is
+\begin{equation}\label{eqn:g}
+    g^{(n)}=  G^{(n)}(s)  \Bigr|_{s=0}
+\end{equation}
+and the $n^{th}$ derivative of the outer function $f(g(s))$ evaluated at $s=0$ is
+\begin{equation}\label{eqn:f}
+    f^{(n)}= \frac{y!}{(y-n)!} [G(s)]^{y-n}  \Bigr|_{s=0}.
+\end{equation}
+According to Faa di Bruno's formula \citep{Johnson2002-nq}, the $(y-1)^{th}$ derivative of $Q(s)$ evaluated at $s=0$ is
+%give standard form first, then sum up in terms of Bell polys
+\begin{equation}\label{eqn:fdb}
+    \frac{d^{y-1} Q(s)}{ds^{y-1}} \Bigr|_{s=0} = \sum  f^{(n)} \frac{(y-1)!}{m_1! m_2! \dots m_{y-1}!} \left ( \frac{g'}{1!}\right )^{m_1} \left ( \frac{g''}{2!} \right )^{m_2}\dots \left ( \frac{g^{(y-1)}}{(y-1)!} \right )^{m_{y-1}}
+\end{equation}
+where the sum is over different solutions in non-negative integers $m_1, m_2, \dots, m_{y-1}$ of
+\begin{align*}
+    1. m_1 + 2. m_2 + \dots + (y-1) m_{y-1} &= y-1,\\
+     m_1 + m_2 + \dots + m_{y-1} &= n.
+\end{align*}
+Equation \eqref{eqn:fdb} can be more succinctly written in terms of Bell polynomials \citep{Johnson2002-nq, Cvijovic2011-ml}, which group the terms satisfying $m_1 + m_2 + \dots + m_{y-1} = n$ together,
+\begin{equation}\label{eqn:fdbbell}
+    \frac{d^{y-1} Q(s)}{ds^{y-1}} \Bigr|_{s=0} = \sum_{n=1}^{y-1}  f^{(n)}(g(s)) B_{y-1,n}(g'(s), g''(s), \dots, g^{(y-n)}(s))
+\end{equation}
+where $B_{y-1,n}(g', g'', \dots, g^{(y-n)})$ are exponential Bell polynomials of the derivatives of the inner function. Numerous programs can compute the Bell polynomials of the derivatives provided a formula for the inner function derivative is supplied., e.g., the BellB package in R and the BellY function in Mathematica.
+
+Finally we note that by definition of the probability generating function for the $a_is$ we can write down the following in terms of probabilities,
+\begin{align}\label{eqn:p0}
+   G(0) =  P(A=0) &= p_0 \notag \\
+    &=> f^{(n)}= \frac{y!}{(y-n)!} p_0^{y-n} 
+\end{align}
+and
+\begin{align}\label{eqn:pn}
+    P(A_i=n) &= \frac{1}{n!} G^{(n)}(s)\Bigr|_{s=0} \notag \\
+    &=> n! p_n = G^{(n)}(s)\Bigr|_{s=0}.
+\end{align}
+Equations \eqref{eqn:g}, \eqref{eqn:f} and \eqref{eqn:fdbbell} together with \eqref{eqn:p0} and \eqref{eqn:pn} can be used to compute the chain size distribution numerically, which is particularly advantageous when an analytical formula for the chain size distribution cannot be readily obtained. The advantage of using the above equations is that it can used with any probability generating function $G(s)$, provided $G(s)$ is a composition of differentiable functions $f$ and $g$ with a sufficient number of derivatives. Additionally, it can compute the chain size distribution for $G(s)$ that are a weighted sum of probability generating functions such as equation \eqref{eqn:nbinommixpgf}. 
+
+%now write in terms of probabilities and explain how the algorithm works, ie make a vector of g_s and combine with the fs according to the fdb formula
+%disadvantage: brute force; cannot deal with large chains bigger than 30, but it can deal with any form of G, including when G is a mixture. 
+\subsection{Chain size distribution for the negative binomial mixture}
+
+To derive the chain size distribution for the negative binomial mixture, we use the result from \citet{Blumberg2013-xv} and therefore require the derivatives of powers of the generating function \eqref{eqn:nbinommixpgf}. Let $$T_y(s) =  (G_N(s))^y, \quad y = 1, 2, \dots $$ Then the probability of a chain having size $y$ \citep{Dwass1969-gs, Blumberg2013-xv} is
+\begin{equation}\label{eqn:cluster}
+    P(Y = y)  =\frac{1}{y}\left( \frac{1}{(y-1)!}T_y^{(y-1)}(s) \Bigr|_{s=0} \right ) =  \frac{1}{y!}T_y^{(y-1)}(s) \Bigr|_{s=0}
+\end{equation}
+To evaluate the derivatives of 
+\begin{equation}\label{eqn:Qy}
+   T_y(s)=  \left (\frac{p}{(1 + \frac{R_0^S}{k}(1-s))^k} +   \frac{(1-p)}{(1 + \frac{R_0^R}{k}(1-s))^k} \right)^y,
+\end{equation}
+we need to apply the chain rule for derivatives $y-1$ times.
+The $n^{th}$ derivative of the inner function $g^{(n)}$ of equation \eqref{eqn:Qy},  $n = 1, 2, \dots, y-1$, evaluated at $s=0$ is
+\begin{equation*}
+    g^{(n)}(0) =  p \frac{(R_0^S)^n}{k^{n-1}} \displaystyle \prod_{i=1}^{n-1} (k+i) \left(1+\frac{R_0^S}{k}\right)^{-k-n}+ (1-p)\frac{(R_0^R)^n}{k^{n-1}} \displaystyle \prod_{i=1}^{n-1} (k+i)\left (1+\frac{R_0^R}{k}\right)^{-k-n}.
+\end{equation*}
+The $n^{th}$ derivative of the outer function $f^{(n)}$ of equation \eqref{eqn:Qy} evaluated at $s=0$ is
+\begin{equation*}
+    f^{(n)}(0) =  \frac{y!}{(y-n)! }\left (\frac{p}{(1 + \frac{R_0^S}{k})^k} +   \frac{(1-p)}{(1 + \frac{R_0^R}{k})^k} \right )^{y-n}, \quad n = 1, 2, \dots, y-1.
+\end{equation*}
+We substitute these formulas into the Faa di Bruno formula \eqref{eqn:fdbbell} and compute the chain size distribution \eqref{eqn:cluster} numerically using the R software package.
+
+%note what is not plotted here: major outbreaks.
+
+In Figure \ref{fig:chains} we compare the chain size distributions of the mixture model ($R_0^R=1.1$, $p=0.1$, additional contacts $\delta =9$) with the base model for various values of $k$. The mean number of secondary infections for both models is $R_0 =2$. The mixture model chain size distribution is characterized by greater probabilities of observing small chains that go extinct (i.e., transmission chains consisting of less than 10 secondary infections) than the standard model. Assuming there is population structure in a dataset and $R_0>1$, we would expect to see more small chains compared to a dataset where there is no structuring in contact. For example, if $R_0=2$ and $k=2$, the mixture model predicts 64\% of transmission chains will be small. On the other hand, the standard model predicts just 38\% of infection clusters will be small, and the remainder will be major outbreaks (e.g. Figure 3). Thus the chain size distribution, given a dataset consisting of small and major infection clusters, would look substantially different if there is underlying population structure in contact rates compared to one without. %something of interest - this isnt observed when R0<1...the base model has higher probs of small chains than the mixture model.
+
+%also the R0<1 case has relevance for control. 
+
+%should i show the converging to the major outbreak for each value of k? and how it is substantially different for each value of k
+
+\begin{figure}
+    \centering
+    \includegraphics{Figure2.pdf}
+    \caption{Chain size distributions of the mixture model ($R_0^R=1.1$, $p=0.1$, additional contacts $\delta =9$) compared with those of base model with the same $R_0$ and dispersion parameter $k$. The mean number of secondary infections for both models is $R_0 =2$. For the mixture models, the probability of a chain size of one is always greater than the negative binomial model with the same $R_0$ and $k$.  The chain size distribution is heavier tailed for the mixture models compared to the corresponding base models. }
+    \label{fig:chains}
+\end{figure}
+
 
 %Derivation
 %Figure 2: comparison of chain size distributions for standard and mixture models for various values of $k$

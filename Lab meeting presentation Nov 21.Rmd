@@ -145,7 +145,7 @@ csize3end<-numeric(nend-2)
 
 for(n in 3:nend){
   #for loop to calculate chain sizes greater than 2
-nvec<-1:(n-1)
+nvec<-1:(n-1) # number of infections
 # gvec<-gNGeo(nvec, p, R0D, R0A) #need n-1 g derivatives
 
 #compute the inner function 1, 2,..,n-1 derivatives of inner function 
@@ -156,10 +156,11 @@ for(i in 1:length(nvec)) gvec[i]<-gNNB(nvec[i],  p, R0D, R0A,k) #if statement so
 #use the derivatives to compute the  Bell polynomials vector of length n-1.
 
 #Faa Di Bruno's formula = sum of outer function * Bell polys of the inner function derivatives
+#here r=1 first derivative of f required
 x1<-fNrNB(n, 1, p, R0D, R0A,k)*BellB(n-1,1,gvec) #r=1
 
 for(i in 2:(n-1)) x1<-x1+fNrNB(n, i, p, R0D, R0A,k)*BellB(n-1,i,head(gvec,-(i-1)))
-
+#add ith derivative of outer f times Bell combo of gi
 #vector of P(chain size = n)
 csize3end[n-2]<-x1/factorial(n)
 rm(x1)

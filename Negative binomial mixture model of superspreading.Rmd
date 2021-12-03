@@ -339,6 +339,52 @@ ggplot(pmf)+
 
 Here we compare the chain size distributions of the mixture model ($R_0^D=1.1$, $p=0.1$, additional contacts $\delta =9$) with the base model for various values of $k$. The mean number of secondary infections for both models is $R_0 =2$. The chain size distribution is fatter tailed for the mixture models compared to the corresponding base models.
 
+```{r}
+nend<-4 #power ie (a+b)^n #nend = number of clusters, 1,...nend
+csizemix<-matrix(NA, ncol=4, nrow=nend) # 4 cols for the 4 vals of k
+for(j in 1:4){
+  
+
+kval<-k[j]
+#generate the cluster distriubiton for the mixture distribution
+
+
+csize3end<-numeric(nend-2)
+
+for(n in 3:nend){
+  #for loop to calculate chain sizes greater than 2
+nvec<-1:(n-1)
+# gvec<-gNGeo(nvec, p, R0D, R0A) #need n-1 g derivatives
+
+#compute the inner function 1, 2,..,n-1 derivatives of inner function 
+#gvec = p1, 2p2, 6p3, ... (n-1)! p_(n-1)
+gvec<-numeric(length(nvec))
+for(i in 1:length(nvec)) gvec[i]<-gNNB(nvec[i],  p, R0D, R0A,kval) #if statement so have to fill one by one
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+
+#use the derivatives to compute the  Bell polynomials vector of length n-1.
+
+#Faa Di Bruno's formula = sum of outer function * Bell polys of the inner function derivatives
+#first derivative of outer * bell
+x1<-fNrNB(n, 1, p, R0D, R0A,kval)*BellB(n-1,1,gvec) #r=1
+
+for(i in 2:(n-1)) x1<-x1+fNrNB(n, i, p, R0D, R0A,kval)*BellB(n-1,i,head(gvec,-(i-1)))
+
+#vector of P(chain size = n)
+csize3end[n-2]<-x1/factorial(n)
+rm(x1)
+}
+#prob cluster size = 1 = Prob(cases=0)
+csize1<-(p)*(1+R0A/kval)^(-kval)+(1-p)*(1+R0D/kval)^(-kval)
+#prob cluster size = 2
+csize2<-fNrNB(2, 1, p, R0D, R0A,kval)*gNNB(1,p,R0D, R0A,kval)/2
+
+#chain size probabilities
+csizemix[,j]<-c(csize1, csize2, csize3end)
+
+}
+
+```
 
 ```{r}
 nend<-10 #power ie (a+b)^n #nend = number of clusters, 1,...nend
@@ -382,7 +428,6 @@ csize2<-fNrNB(2, 1, p, R0D, R0A,kval)*gNNB(1,p,R0D, R0A,kval)/2
 csizemix[,j]<-c(csize1, csize2, csize3end)
 
 }
-
 ```
 
 ```{r}
@@ -403,10 +448,12 @@ clusterdistrib<-bind_rows(clusterbase, clustermix)
 
 ```{r}
 #Plot shows that chain size distribution from a mixture is fatter tailed when $R_0>1$:
-ggplot(clusterdistrib)+
+#ggsave("Figure1.pdf", pmfplot, height=4, width=5)
+pgfplot<-ggplot(clusterdistrib)+
    geom_point(aes(x = Chains, y = Proportion, colour=Model))+
   geom_line(aes(x = Chains, y = Proportion, colour=Model))+
   facet_wrap(~k, labeller=label_both)
+#ggsave("Figure2.pdf", pgfplot, height=4, width=5)
 ```
 
 ## Statistics that show hallmarks of transmission heterogeneity
