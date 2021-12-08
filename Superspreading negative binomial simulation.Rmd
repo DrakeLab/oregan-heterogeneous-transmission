@@ -13,6 +13,172 @@ knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
 ```
 
 ```{r}
+
+R0fn<-function(p, R0D, R0A){
+R0<- p*R0D+(1-p)*R0A
+}
+
+R0adel<-function(R0D, delta){
+  R0A<-R0D + delta
+}
+
+
+NegBinomGen<-function(s, R0, k){
+  #returns s = Q(s), where Q(s) = pgf of negative binomial
+  gen<-1/(1 + (R0/k)*(1 - s))^k -s #solve prob generating fn = s for s. Note R0 > 1 otherwise prob of extinction = 1
+}
+
+NegBinomMixtureGen<-function(s, p, R0D,k, delta){
+  #R0A = R0D + delta
+  R0A<-R0D + delta
+  gen<-p/(1 + (R0A/k)*(1 - s))^k+(1-p)/(1 + (R0D/k)*(1 - s))^k -s
+}
+
+
+mean.chain<-function(R0){ 
+  #Argument R0 can be R0 if R0<1, if R0 >1, compute R0*
+  meanchain<-1/(1-R0)
+}
+
+#variance of offspring function
+varNegBinomoffspring<-function(R0,k){ 
+  v<-R0*(1+R0/k)
+}
+
+#variance of offspring function
+varNegBinommixtureoffspring<-function(p, R0D,k, delta){ 
+  #variance is concave up quadratic function of p
+  v<-R0D*(1+R0D/k) + p*delta*(1 + delta*(1-p) + (2*R0D+delta)/k)
+}
+
+NegBinomR0star<-function(R0=1.5, k){
+  #R0 needs to be bigger than 1
+  #R0* = Q'(z) evaluated at prob of extinction z < 1
+  extprob<-uniroot(NegBinomGen, c(0, 0.99), R0=R0, k=k)$root
+  R0star<-R0*(1+(R0/k)*(1-extprob))^(-k-1)
+}
+
+NegBinomMixR0star<-function(p, R0D,k, delta){
+  R0A<-R0D + delta
+  extprob<-uniroot(NegBinomMixtureGen, c(0, 0.99),  p=p, R0D=R0D, k=k, delta=delta)$root
+  R0star<-p*R0A*(1+(R0A/k)*(1-extprob))^(-k-1)+(1-p)*R0D*(1+(R0D/k)*(1-extprob))^(-k-1)
+}
+
+
+variance.chainNegBinom<-function(R0,k){ 
+  #Argument: R0 > 1, dispersion parameter k
+  #Find variance of chain conditioned on extinction
+  #do i need a different function for R0<1??
+  extprob<-uniroot(NegBinomGen, c(0, 0.99), R0=R0, k=k)$root
+  R0star<-NegBinomR0star(R0,k)
+  #need Q'"(z) evaluated at prob of extinction z < 1
+  pgf2atextprob<-(R0^2)*((k+1)/k)*(1+(R0/k)*(1-extprob))^(-k-2)
+  #Formula from Yan 2008:                                 
+  varchain<-(extprob*pgf2atextprob+R0star*(1-R0star))/(1-R0star)^3
+  return(varchain)
+}
+
+variance.chainNegBinomMix<-function(p, R0D,k, delta){ 
+  #Argument: R0 > 1, R0A = (R0 - p R0^D) /(1-p)
+  R0A<-R0D + delta
+  extprob<-uniroot(NegBinomMixtureGen, c(0, 0.99),  p=p, R0D=R0D, k=k, delta=delta)$root
+  R0star<-NegBinomMixR0star(p,R0D,k, delta)
+  #need Q'"(z) evaluated at prob of extinction z < 1
+  pgf2atextprob<-p*(R0A^2)*((k+1)/k)*(1+(R0A/k)*(1-extprob))^(-k-2)+(1-p)*(R0D^2)*((k+1)/k)*(1+(R0D/k)*(1-extprob))^(-k-2)
+  varchain<-(extprob*pgf2atextprob+R0star*(1-R0star))/(1-R0star)^3
+  return(varchain)
+  }
+
+
+
+gNNB<-function(n, p, R0D, R0A, k){
+  #inner function - negative binomial mixture
+  #find its nth derivative
+  q1 <- (1+R0A/k)
+  q2 <- (1+R0D/k)
+  
+  if(n==1) {
+    gn<-p*R0A*q1^(-k-1)+(1-p)*R0D*q2^(-k-1)
+  }
+  else if (n==2){
+    gn<-p*((R0A^2)/k)*(k+1)*q1^(-k-2)+(1-p)*((R0D^2)/k)*(k+1)*q2^(-k-2)
+  }
+  else if (n>2) {
+    pvec <- (k+1):(k+n-1)
+  ppvec<-prod(pvec)
+  #gn<-p*k*ppvec*((R0A/k)^n)*(1+R0A/k)^(-n-k)+(1-p)*(k)*ppvec*((R0D/k)^n)*(1+R0D/k)^(-n-k)
+  gn<-p*((R0A/k)^n)*(k*ppvec)*q1^(-k-n)+(1-p)*((R0D/k)^n)*(k*ppvec)*q2^(-k-n) 
+  }
+  return(gn) 
+}
+
+fNrNB<-function(n, r, p, R0D, R0A, k){
+  #outer function = pgf at s = 0
+  #n is the power (a+b)^n, a = p*(1+R0A/k)^(-k), b=(1-p)*(1+R0D/k)^(-k)
+  #r is the derivative required, r = 1, 2, ..., n-1
+  #pgf of neg binom at s=0 is (1+R0/k)^(-k)
+ fn<-(factorial(n)/factorial(n-r))*(p*(1+R0A/k)^(-k) +(1-p)*(1+R0D/k)^(-k))^(n-r)
+}
+
+
+nbinomchain<-function(j, R0, k){
+  #cluster size distribution for negative binomial model
+  #formula from Blumberg et al. 2013
+  #Arguments: j=chain size, R0=mean, k=dispersion
+  a<-R0/k
+  x<-j-1
+  y<-(a^x)/(1+a)^(k*j+x)
+  g<-gamma(k*j+x)/(gamma(k*j)*gamma(j+1))
+  return(g*y)
+}
+
+#prob cluster <=5
+#better to find from the other matrix first?
+#filter chains<=5
+nbinommixturechain<-function(nend, p, R0D,k, delta){
+  #generate cluster size distribution for a nbinom mixture, 
+  #clusters of size 1, 2, ...., nend
+  R0A<-R0D+delta
+csize3end<-numeric(nend-2)
+
+for(n in 3:nend){
+  #for loop to calculate chain sizes greater than 2
+nvec<-1:(n-1)
+# gvec<-gNGeo(nvec, p, R0D, R0A) #need n-1 g derivatives
+
+#compute the inner function 1, 2,..,n-1 derivatives of inner function 
+gvec<-numeric(length(nvec))
+for(i in 1:length(nvec)) gvec[i]<-gNNB(nvec[i],  p, R0D, R0A,k) #if statement so have to fill one by one
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+
+#use the derivatives to compute the  Bell polynomials vector of length n-1.
+
+#Faa Di Bruno's formula = sum of outer function * Bell polys of the inner function derivatives
+x1<-fNrNB(n, 1, p, R0D, R0A,k)*BellB(n-1,1,gvec) #r=1
+
+for(i in 2:(n-1)) x1<-x1+fNrNB(n, i, p, R0D, R0A,k)*BellB(n-1,i,head(gvec,-(i-1)))
+
+#vector of P(chain size = n)
+csize3end[n-2]<-x1/factorial(n)
+rm(x1)
+}
+#prob cluster size = 1 = Prob(cases=0)
+csize1<-(p)*(1+R0A/k)^(-k)+(1-p)*(1+R0D/k)^(-k)
+#prob cluster size = 2
+csize2<-fNrNB(2, 1, p, R0D, R0A,k)*gNNB(1,p,R0D, R0A,k)/2
+
+#chain size probabilities
+csizemix<-c(csize1, csize2, csize3end)
+return(csizemix)
+}
+
+ProbabilityChainSizeLessthanEqualC<-function(C, chainsizes){
+  #chainsizes is a column vector of chain sizes
+  #C =1, 2, ...,length(chainsizes)
+  prob<-sum(chainsizes[1:C])
+}
+
+
 NegBinmixturedeviate<- function(m, p, R0D, k, delta) {  
   #Returns a vector of m Poisson mixture deviates
   # Assumes a finite mixture of two Poisson distributions, with prob p and 1-p respectively, 0<p<1
@@ -189,7 +355,7 @@ mean(cluster[which(cluster<10)])
 
 ```{r}
 nsims<-10
-ngen=20
+ngen=10
 sims<-matrix(NA, ncol=nsims, nrow=ngen+1)
 for(i in 1:nsims) sims[,i]<-NegBinmixturebranch(ngen,p=0.1, R0D=0.8, k=0.5, delta=1) 
 sims
@@ -302,6 +468,8 @@ poissmixgen4<-na.omit(poissmixgen4)
 ```
 
 Median generation time same for all mixtures. Generation time has most variability for p=0.05, with 25% taking 11 generations or more to take off. 25% take 3 generations or less (most explosive for p =0.05, 0.1). 75% take 9 generations or less if p=0.1 (most explosive?)
+
+
 ```{r}
 
 
@@ -312,8 +480,156 @@ gentime<-c(poissgen2[1:nsims2], poissmixgen2[1:nsims2], poissgen2[1:nsims2],pois
 data2=data.frame(p=pval, model ,  GenerationTime=gentime)
  
 # grouped boxplot
-p<-ggplot(data2, aes(x=p, y=GenerationTime, fill=model)) + 
+#p<-
+ggplot(data2, aes(x=p, y=GenerationTime, fill=model)) + 
     geom_boxplot()
-p
+
 #ggsave("gentimeR0.pdf", p, height=4, width=5)
+```
+
+## Corresponding chain size distributions 
+
+$k=2$, 4 generations (snapshot in time), plot only chains with size < 50:
+
+```{r}
+nsims<-10000
+ngen=4
+cluster<-numeric(nsims)
+for(i in 1:nsims) cluster[i]<-sum(NegBinmixturebranch(ngen,p=0.1, R0D=1.1, k=2, delta=9)) 
+bcluster<-numeric(nsims)
+for(i in 1:nsims) bcluster[i]<-sum(NegBinbranch(ngen, R0=2, k=2)) 
+mydata<-data.frame(ChainSize=cluster)
+data<-data.frame(ChainSize=bcluster)
+combdat<-bind_rows(list(Mixture=mydata,Baseline=data),
+                           .id="model")
+#plot only chains less than 50 (so prop is conditional)
+ggplot(filter(combdat, ChainSize<50),aes(ChainSize,y=stat(prop),fill=model))+
+   scale_fill_manual(values=c("red","blue"))+
+  geom_bar(alpha=0.5,position = 'identity') 
+```
+
+Include only chains that have gone extinct after 10 generations:
+
+```{r}
+nsims<-1000
+ngen=10
+sims<-matrix(NA, ncol=nsims, nrow=ngen+1)
+for(i in 1:nsims) sims[,i]<-NegBinmixturebranch(ngen,p=0.1, R0D=1.1, k=2, delta=9)
+mchains<-sims[,(sims[(ngen+1),]) == 0] #select only the columns with final generation cases = 0
+bsims<-matrix(NA, ncol=nsims, nrow=ngen+1)
+for(i in 1:nsims) bsims[,i]<-NegBinbranch(ngen, R0=2, k=2) 
+bchains<-bsims[,(bsims[(ngen+1),]) == 0]
+mydata<-data.frame(ChainSize=colSums(mchains))
+data<-data.frame(ChainSize=colSums(bchains))
+combdat<-bind_rows(list(Mixture=mydata,Baseline=data),
+                           .id="model")
+ggplot(combdat,aes(ChainSize,y=stat(prop),fill=model))+
+   scale_fill_manual(values=c("red","blue"))+
+  geom_bar(alpha=0.5,position = 'identity') 
+```
+
+```{r}
+dim(mchains)[2]/1000
+dim(bchains)[2]/1000
+summary(colSums(mchains))
+summary(colSums(bchains))
+```
+
+The mixture chain size distribution is longer tailed than the baseline. The mixture chain size distribution contains many more chains that go extinct (minor outbreaks) than the baseline. The plot above conditions upon the probability of extinction, i.e. we see $P(Z=1)/z_\infty$, not $P(Z=1)$, e.g. for the standard model this is
+```{r}
+dnbinom(0, size=2, mu=2)/uniroot(NegBinomGen, c(0, 0.99), R0=2, k=2)$root
+```
+
+Plot that is not conditional upon extinction with largest chain size equal to the max of the chains that go extinct:
+```{r}
+nsims<-1000
+ngen=10
+sims<-matrix(NA, ncol=nsims, nrow=ngen+1)
+for(i in 1:nsims) sims[,i]<-NegBinmixturebranch(ngen,p=0.1, R0D=1.1, k=2, delta=9)
+mchains<-sims[,(sims[(ngen+1),]) == 0] #select only the columns with final generation cases = 0
+bsims<-matrix(NA, ncol=nsims, nrow=ngen+1)
+for(i in 1:nsims) bsims[,i]<-NegBinbranch(ngen, R0=2, k=2) 
+bchains<-bsims[,(bsims[(ngen+1),]) == 0]
+mydata<-data.frame(ChainSize=colSums(sims))
+data<-data.frame(ChainSize=colSums(bsims))
+combdat<-bind_rows(list(Mixture=mydata,Baseline=data),
+                           .id="model")
+ggplot(combdat,aes(x=ChainSize,fill=model))+
+   scale_fill_manual(values=c("red","blue"))+
+  geom_bar(alpha=0.5,position = 'identity') +
+  xlim(0, max(colSums(mchains)))
+
+mixy<-count(mydata, ChainSize)
+mixx<-mutate(mixy, ChainSizeProp=n/1000)
+basey<-count(data, ChainSize)
+basex<-mutate(basey, ChainSizeProp=n/1000)
+combdat<-bind_rows(list(Mixture=mixx,Baseline=basex),
+                           .id="model")
+ggplot(combdat,aes(x=ChainSize, y=ChainSizeProp,colors=model))+
+  geom_point()+
+   scale_fill_manual(values=c("red","blue"))+
+ # geom_bar(alpha=0.5,position = 'identity') +
+  xlim(0, max(colSums(mchains)))
+```
+
+
+```{r}
+
+pval<-c(0.05, 0.1, 0.15, 0.2)
+
+#mix data is negative binomial mixture model, R0=2, R0D, p as above dispersion parameter = k
+mixsim<-matrix(NA, nrow=10000, ncol=4)
+for(i in 1:4) mixsim[,i]<-NegBinmixturedeviate(10000, p=pval[i], R0D=1.1, k=0.5,delta=(2-1.1)/pval[i])
+
+#make a pmf data frame with columns = cases, proportions, dispersion parameters, model type
+mdatasim<-data.frame(Cases=mixsim[,1], p=rep(pval[1],10000), Model=rep("mixture",10000), delta=(2-1.1)/pval[1])
+for(i in 2:4) mdatasim<-bind_rows(mdatasim,data.frame(Cases=mixsim[,i], p=rep(pval[i],10000), Model=rep("mixture",10000), delta=(2-1.1)/pval[i]))
+
+bdatasim<-data.frame(Cases=rnbinom(10000, mu=2, size=0.5),  p=rep(1,10000), Model=rep("base",10000), delta=(2-1.1))
+
+
+sim05<-bind_rows(bdatasim, mdatasim)
+sim05<-mutate(sim05, R0A=1.1+delta)
+mdatasim<-mutate(mdatasim, R0A=1.1+delta)
+```
+
+
+
+```{r}
+ggplot(mdatasim, aes(x = Cases, y=stat(prop), fill=p))+
+  geom_bar(position = 'identity')+
+  facet_wrap(~R0A, labeller=label_both)+
+  xlim(-1,30)
+```
+
+
+```{r}
+count(filter(mdatasim,R0A=="19.1"), Cases)
+```
+
+
+Compare negative binomial with $R_0=2$, $p=0.1$, $k=1/2$ with standard model, $R_0=2$, $k=1/2$:
+
+```{r}
+mydata<-data.frame(cases=NegBinmixturedeviate(100000, p=0.1, R0D=1.1, k=0.5,delta=(2-1.1)/0.1))
+data<-data.frame(cases=rnbinom(100000, mu=2, size=0.5))
+combdat<-bind_rows(list(Mixture=mydata,Baseline=data),
+                           .id="model")
+ggplot(combdat,aes(cases,y=stat(prop),fill=model))+
+   scale_fill_manual(values=c("red","blue"))+
+  geom_bar(alpha=0.5,position = 'identity') +
+  ggtitle("k=1/2")
+```
+
+Compare negative binomial with $R_0=2$, $p=0.1$, $k=2$ with standard model, $R_0=2$, $k=2$. Similar to probability mass function for $k=2$ (below)
+
+```{r}
+mydata<-data.frame(cases=NegBinmixturedeviate(100000, p=0.1, R0D=1.1, k=2,delta=(2-1.1)/0.1))
+data<-data.frame(cases=rnbinom(100000, mu=2, size=2))
+combdat<-bind_rows(list(Mixture=mydata,Baseline=data),
+                           .id="model")
+ggplot(combdat,aes(cases,y=stat(prop),fill=model))+
+   scale_fill_manual(values=c("red","blue"))+
+  geom_bar(alpha=0.5,position = 'identity') +
+  ggtitle("k=2")
 ```

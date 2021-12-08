@@ -184,6 +184,102 @@ ProbabilityChainSizeLessthanEqualC<-function(C, chainsizes){
   prob<-sum(chainsizes[1:C])
 }
 
+NegBinmixturedeviate<- function(m, p, R0D, k, delta) {  
+  #Returns a vector of m Poisson mixture deviates
+  # Assumes a finite mixture of two Poisson distributions, with prob p and 1-p respectively, 0<p<1
+  #1 = success = direct contact
+  #0 = failure = aerosol
+  #rbinom = one bernoulli trial for direct transmission
+  #n = number of observations = 1
+  #size = number of trials =1 (bernoulli) per observation
+  #if success, deviate = rpois(R0D) otherwise aerosol
+  R0A<-R0D +delta
+  deviate<-numeric(m) #number of deviates
+  for(i in 1:m){
+deviate[i]<-ifelse(rbinom(1, size=1, prob = p)==1, rnbinom(1,mu=R0A, size=k), rnbinom(1,mu=R0D, size=k))
+  }
+  return(deviate)
+}
+
+NegBinmixturebranch<- function(n,p, R0D, k, delta) {
+  #Arguments:
+  #n = number of generations
+  #Returns number of cases per generation as a vector
+  #Uses Poissonmixturedeviate to generate random variates from mixture distribution
+  
+	z <- c(1,rep(0,n))#one infected case in generation 0 
+	for (i in 2:(n+1)) {
+z[i]<-ifelse(z[i-1]==0, 0, sum(NegBinmixturedeviate(z[i-1], p=p, R0D=R0D, k=k, delta=delta)))	  
+			}
+			return(z)
+			}
+
+NegBinbranch<- function(n,R0, k) {
+  #Arguments:
+  #n = number of generations
+  #Returns number of cases per generation as a vector
+  #Uses Poissonmixturedeviate to generate random variates from mixture distribution
+  
+	z <- c(1,rep(0,n))#one infected case in generation 0 
+	for (i in 2:(n+1)) {
+z[i]<-ifelse(z[i-1]==0, 0, sum(rnbinom(z[i-1],mu=R0,size=k)))	  
+			}
+			return(z)
+}
+
+
+
+
+NegBinbranchw <- function(R0,k) {
+  #returns n = the number of generations that it takes to have a cluster greater than 50 from a Poisson mixture offspring distribution
+  
+  n<-1
+	z <- c(1,rep(0,n)) #n = number of generations after generation 0
+	#one infected case in generation 0
+	cluster<-sum(z)
+	while(cluster<50){
+	    i<-n+1
+			z[i] <- sum(rnbinom(z[i-1],mu=R0,size=k))
+			cluster<-cluster+z[i]
+      n<-n+1
+      if(z[i]==0){
+        break #break out of loop of cluster dies out
+      }
+			}
+			#return(c(z, cluster, n))
+if(cluster<50)
+	{n<-NA} #prob of extinction zinfinity predicts proportion of clusters that die out
+	return(n)
+}
+
+
+		
+NegBinmixturebranchw<- function(p, R0D, k, delta) {  
+#returns n = the number of generations that it takes to have a cluster greater than 50 from a Poisson mixture offspring distribution
+R0A<-R0D+delta
+  n<-1 #generation time
+	z <- c(1,rep(0,n))
+	#one infected case in generation 0 
+	cluster<-sum(z)
+	while(cluster<50){
+	  #number of poisson rvs needed per case = z[i-1], then add together to get the number of new infections in that generation
+	    i<-n+1
+	    
+	z[i]<-ifelse(z[i-1]==0, 0, sum(NegBinmixturedeviate(z[i-1], p=p, R0D=R0D, k=k, delta=delta)))	 
+
+		cluster<-cluster+z[i]
+      n<-n+1
+      if(z[i]==0){
+        break #if no cases break out of while loop
+      }
+			}
+	#		return(c(z, cluster, n)) as a check
+	if(cluster<50)
+	{n<-NA}
+	return(n)
+			}
+
+
 ```
 
 
@@ -220,6 +316,117 @@ The mean number of secondary infections is $R_0 = p R_0^A + (1-p)R_0^D = R_0^D +
 
 We compare the mixture model with a baseline negative binomial model with the same $R_0$ and dispersion parameter $k$.
 
+## Simulations
+
+Mixture model, $k=1/2$:
+```{r}
+nsims<-10
+ngen=10
+sims<-matrix(NA, ncol=nsims, nrow=ngen+1)
+for(i in 1:nsims) sims[,i]<-NegBinmixturebranch(ngen,p=0.1, R0D=0.5, k=0.5, delta=3) 
+sims
+```
+Mixture model, $k=2$:
+```{r}
+nsims<-10
+ngen=10
+sims<-matrix(NA, ncol=nsims, nrow=ngen+1)
+for(i in 1:nsims) sims[,i]<-NegBinmixturebranch(ngen,p=0.1, R0D=0.5, k=2, delta=3) 
+sims
+```
+
+Plot the mixture chains assuming $k=2:
+```{r}
+ngenmax<-8
+simdf<-data.frame(Chain = sims[1:(ngenmax+1),1], ChainNum = "1", Generation=0:ngenmax)
+chainnum<-c("2", "3", "4", "5", "6", "7", "8", "9", "10")
+for(i in 2:nsims) simdf<-bind_rows(simdf, data.frame(Chain=sims[1:(ngenmax+1),i], ChainNum = chainnum[i-1], Generation=0:ngenmax))
+```
+
+```{r}
+ggplot(simdf)+
+   geom_point(aes(x = Generation, y = Chain, colour=ChainNum))+
+  geom_line(aes(x = Generation, y = Chain, colour=ChainNum))
+```
+Base model, $k=2$:
+```{r}
+nsims<-10
+ngen=10
+bsims<-matrix(NA, ncol=nsims, nrow=ngen+1)
+for(i in 1:nsims) bsims[,i]<-NegBinbranch(ngen, R0=0.8, k=2) 
+bsims
+```
+
+For both models, larger values of $k$ lead to longer chains before extinction.
+The variance of the chain size $Z$ when $R_0<1$ is $var(Z) = var(N)/(1-R_0)^3$, so $var(Z)$ increases with $N$ and the variance of the mixture is greater than that of the base model, so we expect greater variability in the chains.
+
+Cluster size distribution for baseline model from 100 simulations with $k=2$
+```{r}
+nsims<-100
+ngen=20
+bcluster<-numeric(nsims)
+for(i in 1:nsims) bcluster[i]<-sum(NegBinbranch(ngen, R0=0.8, k=2)) 
+bcluster
+mean(bcluster[which(bcluster>=10)])
+median(bcluster[which(bcluster>=10)])
+mean(bcluster[which(bcluster<10)])
+```
+Cluster size distribution for mixture model from 100 simulations with $k=2$ is not remarkably different, but the mean and median of clusters > 10 tend to be larger than that obtained from the baseline model above:
+```{r}
+nsims<-100
+ngen=20
+cluster<-numeric(nsims)
+for(i in 1:nsims) cluster[i]<-sum(NegBinmixturebranch(ngen,p=0.1, R0D=0.5, k=2, delta=3)) 
+cluster
+c(mean(cluster[which(cluster>=10)]), range(cluster[which(cluster>=10)]))
+median(cluster[which(cluster>=10)])
+mean(cluster[which(cluster<10)])
+```
+$k=1/2$:
+
+```{r}
+nsims<-10000
+ngen=20
+cluster<-numeric(nsims)
+for(i in 1:nsims) cluster[i]<-sum(NegBinmixturebranch(ngen,p=0.1, R0D=0.5, k=1/2, delta=3)) 
+bcluster<-numeric(nsims)
+for(i in 1:nsims) bcluster[i]<-sum(NegBinbranch(ngen, R0=0.8, k=1/2)) 
+mydata<-data.frame(ChainSize=cluster)
+data<-data.frame(ChainSize=bcluster)
+combdat<-bind_rows(list(Mixture=mydata,Baseline=data),
+                           .id="model")
+ggplot(filter(combdat, ChainSize<51),aes(ChainSize,y=stat(prop),fill=model))+
+   scale_fill_manual(values=c("red","blue"))+
+  geom_bar(alpha=0.5,position = 'identity') 
+```
+$k=2$:
+
+```{r}
+nsims<-10000
+ngen=20
+cluster<-numeric(nsims)
+for(i in 1:nsims) cluster[i]<-sum(NegBinmixturebranch(ngen,p=0.1, R0D=0.5, k=2, delta=3)) 
+bcluster<-numeric(nsims)
+for(i in 1:nsims) bcluster[i]<-sum(NegBinbranch(ngen, R0=0.8, k=2)) 
+mydata<-data.frame(ChainSize=cluster)
+data<-data.frame(ChainSize=bcluster)
+combdat<-bind_rows(list(Mixture=mydata,Baseline=data),
+                           .id="model")
+ggplot(filter(combdat, ChainSize<51),aes(ChainSize,y=stat(prop),fill=model))+
+   scale_fill_manual(values=c("red","blue"))+
+  geom_bar(alpha=0.5,position = 'identity') 
+```
+Higher probabilities of observing a small cluster less than 15 for the baseline model than the mixture model, as predicted by the theory below. 
+
+Would like to show that clusters that do take off under the mixture model should be larger than that of the baseline model, due to the superspreading component.
+Summary of chains with chain size > 10, generated by mixture model:
+```{r}
+summary(filter(mydata, ChainSize>10))
+```
+Summary of chains with chain size > 10, generated by baseline model. The mean is greater for the mixture model than the baseline model.
+```{r}
+summary(filter(data, ChainSize>10))
+```
 ## Numerical studies (assuming $R_0 < 1$)
 - How statistics vary with $p$, $\delta$ and $k$, keeping $R_0$ fixed, for the baseline and mixture models (compare the degree of heterogeneity in outbreak patterns)
 
@@ -266,7 +473,7 @@ ggplot(pmf)+
 
 ## Corresponding chain size distributions 
 
-Here we compare the chain size distributions of the mixture model ($R_0^D=0.5$, $p=0.1$, additional contacts $\delta =3$) with the base model for various values of $k$. The mean number of secondary infections for both models is $R_0 =0.8$. When $R_0<1$ the chain size distribution is not fatter tailed for the mixture models compared to the corresponding base models. The base model is fatter tailed. 
+Here we compare the chain size distributions of the mixture model ($R_0^D=0.5$, $p=0.1$, additional contacts $\delta =3$) with the base model for various values of $k$. The mean number of secondary infections for both models is $R_0 =0.8$. When $R_0<1$ the chain size distribution is not heavier tailed for the mixture models compared to the corresponding base models. The base model is heavier tailed. The simulations above suggest that this is because the base model chains are small and go extinct after just a few generations, whereas some of the mixture chains will grow into larger outbreaks before eventual extinction (i.e., those dominated by $R_0^S = R_0^R +\delta$). 
 
 
 ```{r}
