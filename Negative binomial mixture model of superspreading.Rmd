@@ -779,8 +779,9 @@ cdeltastatdata<-mutate(cdeltastatdata, MajorOutbreak = 1-ExtinctionProbability,R
 cR0Dstatdata<-data.frame(Model="Control on both groups",Control=control, CaseVariance=mixstatR0D[,1], ExtinctionProbability=mixstatR0D[,2])
 cR0Dstatdata<-mutate(cR0Dstatdata, MajorOutbreak = 1-ExtinctionProbability, R0D=(1-control)*R0Dval, p=rep(pval, length(control)), delta=rep(deltaval, length(control)), EffectiveR0=R0D + pval*deltaval,VarMeanRatio=CaseVariance/EffectiveR0, CVCases=sqrt(CaseVariance)/EffectiveR0)
                    
-controlstat<-bind_rows(cpstatdata, cdeltastatdata, cR0Dstatdata)                   
-
+controlstat<-bind_rows(cpstatdata, cdeltastatdata, cR0Dstatdata)   
+mjstart<-1-uniroot(NegBinomMixtureGen, c(0, 0.9999),  p=pval, R0D=R0Dval, k=kval, delta=(1-0)*deltaval)$root
+controlstat<-mutate(controlstat, MajorOutbreakPercentageChange=(MajorOutbreak-mjstart)*100/mjstart)
 ```
 
 
@@ -791,14 +792,43 @@ ggplot(controlstat)+
    geom_point(aes(x = Control, y = CVCases, colour=Model))+
   geom_line(aes(x = Control, y = CVCases, colour=Model))
 ```
+
 ```{r}
+#extplot<-
 ggplot(controlstat)+
    geom_point(aes(x = Control, y = ExtinctionProbability, colour=Model))+
   geom_line(aes(x = Control, y = ExtinctionProbability, colour=Model))
+#ggsave("Figure8.pdf", extplot, height=4, width=5)
 ```
 ```{r}
+#varmeanplot<-
 ggplot(controlstat)+
    geom_point(aes(x = Control, y = VarMeanRatio, colour=Model))+
   geom_line(aes(x = Control, y = VarMeanRatio, colour=Model))
+#ggsave("Figure9.pdf", varmeanplot, height=4, width=5)
+```
+```{r}
+ggplot(controlstat)+
+   geom_point(aes(x = Control, y = MajorOutbreak, colour=Model))+
+  geom_line(aes(x = Control, y = MajorOutbreak, colour=Model))
+```
+```{r}
+changeplot<-ggplot(controlstat)+
+   geom_point(aes(x = Control, y = MajorOutbreakPercentageChange, colour=Model))+
+  geom_line(aes(x = Control, y = MajorOutbreakPercentageChange, colour=Model))
+ggsave("Figure10.pdf", changeplot, height=4, width=5)
+```
+```{r}
+#library(cowplot)
+
+#iris1 <- ggplot(controlstat)+
+ #  geom_point(aes(x = Control, y = ExtinctionProbability, colour=Model))+
+#  geom_line(aes(x = Control, y = ExtinctionProbability, colour=Model))
+
+#iris2 <- ggplot(controlstat)+
+#   geom_point(aes(x = Control, y = MajorOutbreakPercentageChange, colour=Model))+
+#  geom_line(aes(x = Control, y = MajorOutbreakPercentageChange, colour=Model))
+
+#plot_grid(iris1, iris2, labels = "AUTO")
 ```
 
