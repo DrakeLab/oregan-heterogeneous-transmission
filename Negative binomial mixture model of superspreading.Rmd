@@ -55,6 +55,14 @@ NegBinomMixtureGen<-function(s, p, R0D,k, delta){
   gen<-p/(1 + (R0A/k)*(1 - s))^k+(1-p)/(1 + (R0D/k)*(1 - s))^k -s
 }
 
+NegBinomMixProbZero<-function(p, R0D, k, delta){
+  R0A<-R0D + delta
+  prob<-(p)*(1+R0A/k)^(-k)+(1-p)*(1+R0D/k)^(-k)
+}
+
+NegBinomProbZero<-function(R0, k){
+  prob<-(1+R0/k)^(-k)
+}
 
 mean.chain<-function(R0){ 
   #Argument R0 can be R0 if R0<1, if R0 >1, compute R0*
@@ -360,15 +368,17 @@ for(i in 1:4) mixdata[,i]<-p*dnbinom(0:10, size=k[i],mu=R0D+delta)+(1-p)*dnbinom
 mdatapmf<-data.frame(Cases=0:10, Proportion=mixdata[,1], k=rep(k[1],11), Model=rep("mixture",11), R0=rep(2,nend+1), Distribution = rep("pmf",nend+1))
 for(i in 2:4) mdatapmf<-bind_rows(mdatapmf,data.frame(Cases=0:10, Proportion=mixdata[,i], k=rep(k[i],11), Model=rep("mixture",11),R0=rep(2,nend+1), Distribution = rep("pmf",nend+1)))
 
-bdatapmf<-data.frame(Cases=0:10, Proportion=basedata[,1], k=rep(k[1],11), Model=rep("base",11),R0=rep(2,nend+1), Distribution = rep("pmf",nend+1))
-for(i in 2:4) bdatapmf<-bind_rows(bdatapmf,data.frame(Cases=0:10, Proportion=basedata[,i], k=rep(k[i],11), Model=rep("base",11),R0=rep(2,nend+1), Distribution = rep("pmf",nend+1)))
+bdatapmf<-data.frame(Cases=0:10, Proportion=basedata[,1], k=rep(k[1],11), Model=rep("standard",11),R0=rep(2,nend+1), Distribution = rep("pmf",nend+1))
+for(i in 2:4) bdatapmf<-bind_rows(bdatapmf,data.frame(Cases=0:10, Proportion=basedata[,i], k=rep(k[i],11), Model=rep("standard",11),R0=rep(2,nend+1), Distribution = rep("pmf",nend+1)))
 
 pmf<-bind_rows(bdatapmf, mdatapmf)
 
+#pmfplot<-
 ggplot(pmf)+
    geom_point(aes(x = Cases, y = Proportion, colour=Model))+
   geom_line(aes(x = Cases, y = Proportion, colour=Model))+
-  facet_wrap(~k, labeller=label_both)
+  facet_wrap(~k, labeller=label_both)+
+  xlab("Number of secondary infections N = j")+ylab("Probability P(N=j)")
 #ggsave("Figure1.pdf", pmfplot, height=4, width=5)
 ```
 
@@ -479,8 +489,8 @@ for(i in 2:4) clustermix<-bind_rows(clustermix,data.frame(Chains=1:nend, Proport
 csizebase<-matrix(NA, nrow=nend, ncol=4)
 for(i in 1:4) csizebase[,i]<-nbinomchain(1:nend, R0, k[i])
 
-clusterbase<-data.frame(Chains=1:nend, Proportion=csizebase[,1], CumuProb= cumsum(csizebase[,1]), CompCumuProb=1-cumsum(csizebase[,1]), MajorOutbreak= rep(1-uniroot(NegBinomGen, c(0, 0.99),   R0=R0, k=k[1])$root, nend),k=rep(k[1],nend), Model=rep("base",nend), R0=rep(2,nend), Distribution = rep("chain",nend)) 
-for(i in 2:4) clusterbase<-bind_rows(clusterbase,data.frame(Chains=1:nend, Proportion=csizebase[,i], CumuProb= cumsum(csizebase[,i]), CompCumuProb=1-cumsum(csizebase[,i]),MajorOutbreak= rep(1-uniroot(NegBinomGen, c(0, 0.99),   R0=R0, k=k[i])$root, nend),k=rep(k[i],nend), Model=rep("base",nend), R0=rep(2,nend), Distribution = rep("chain",nend)))
+clusterbase<-data.frame(Chains=1:nend, Proportion=csizebase[,1], CumuProb= cumsum(csizebase[,1]), CompCumuProb=1-cumsum(csizebase[,1]), MajorOutbreak= rep(1-uniroot(NegBinomGen, c(0, 0.99),   R0=R0, k=k[1])$root, nend),k=rep(k[1],nend), Model=rep("standard",nend), R0=rep(2,nend), Distribution = rep("chain",nend)) 
+for(i in 2:4) clusterbase<-bind_rows(clusterbase,data.frame(Chains=1:nend, Proportion=csizebase[,i], CumuProb= cumsum(csizebase[,i]), CompCumuProb=1-cumsum(csizebase[,i]),MajorOutbreak= rep(1-uniroot(NegBinomGen, c(0, 0.99),   R0=R0, k=k[i])$root, nend),k=rep(k[i],nend), Model=rep("standard",nend), R0=rep(2,nend), Distribution = rep("chain",nend)))
 
 clusterdistrib<-bind_rows(clusterbase, clustermix)
 ```
@@ -489,12 +499,13 @@ clusterdistrib<-bind_rows(clusterbase, clustermix)
 ```{r}
 #Plot shows that chain size distribution from a mixture is fatter tailed when $R_0>1$:
 #ggsave("Figure1.pdf", pmfplot, height=4, width=5)
+#pgfplot<-
 ggplot(clusterdistrib)+
    geom_point(aes(x = Chains, y = Proportion, colour=Model))+
   geom_line(aes(x = Chains, y = Proportion, colour=Model))+
   facet_wrap(~k, labeller=label_both)+
   xlim(1,10)+
-  xlab("Chain size") + ylab("Probability")
+  xlab("Chain size Y=y") + ylab("Probability P(Y=y)")
 #ggsave("Figure2.pdf", pgfplot, height=4, width=5)
 ```
 
@@ -507,14 +518,14 @@ Recall that if $R_0>1$ the true probability distribution of chains is bimodal, i
 ```{r}
 #Plot shows that chain size distribution from a mixture is fatter tailed when $R_0>1$:
 #ggsave("Figure1.pdf", pmfplot, height=4, width=5)
-CompCumuDistplot<-
+#CompCumuDistplot<-
 ggplot(clusterdistrib)+
    geom_point(aes(x = Chains, y = CompCumuProb, colour=Model))+
   geom_line(aes(x = Chains, y = CompCumuProb, colour=Model))+
   geom_line(aes(x = Chains, y = MajorOutbreak, colour=Model))+
   facet_wrap(~k, labeller=label_both)+
-  xlab("n") + ylab("Prob(Chain Size > n)")
-ggsave("Figure3.pdf", CompCumuDistplot, height=4, width=5)
+  xlab("Chain size y") + ylab("Proportion of chains > y")
+#ggsave("Figure3.pdf", CompCumuDistplot, height=4, width=5)
 ```
 
 ## Statistics that show hallmarks of transmission heterogeneity
@@ -554,7 +565,7 @@ R0A<-R0D+delta
 
 ```{r}
 #Calculate mixture statistics:
-nstat<-5
+nstat<-6
   mixstat<-array(NA, dim=c(length(k), length(p), nstat))
   for(j in 1:length(k)){
     kval<-k[j]
@@ -564,14 +575,15 @@ for(i in 1:length(p)){
   mixstat[j,i,3]<-NegBinomMixR0star(p[i], R0D, kval, delta[i])#R0* needed for mean chain size
   mixstat[j,i,4]<-variance.chainNegBinomMix(p[i], R0D, kval, delta[i]) #chain variance conditioned on extinction
   mixstat[j,i,5]<-ProbabilityChainSizeLessthanEqualC(C=10, nbinommixturechain(nend=10, p=p[i], R0D=R0D,k=kval, delta=delta[i])) #prob of observing cluster size <=10 (measure of stochastic burnout)
+  mixstat[j,i,6]<-NegBinomMixProbZero(p=p[i], R0D=R0D,k=kval, delta=delta[i]) #prob of no secondary infections
 }  
   }
 
   #could include delta in the frame
 #change 4 by pval by nstat array into  (4*pval) by nstat matrix/data frame
-mstatdata<-data.frame(model="mixture", R0=rep(R0, length(p)), R0D=rep(R0D , length(p)),p=p,delta=delta, k=rep(k[1], length(p)), CaseVariance=mixstat[1,,1], ExtinctionProbability=mixstat[1,,2],R0star=mixstat[1,,3],ChainVariance=mixstat[1,,4], ProbabilityChainSizeLessEqual10=mixstat[1,,5])
+mstatdata<-data.frame(model="mixture", R0=rep(R0, length(p)), R0D=rep(R0D , length(p)),p=p,delta=delta, k=rep(k[1], length(p)), CaseVariance=mixstat[1,,1], ExtinctionProbability=mixstat[1,,2],R0star=mixstat[1,,3],ChainVariance=mixstat[1,,4], ProbabilityChainSizeLessEqual10=mixstat[1,,5], ProbChainSize1=mixstat[1,,6])
 #stack each data frame corresponding to each k value below each other
-for(i in 2:4) mstatdata<-bind_rows(mstatdata, data.frame(model="mixture", R0=rep(R0, length(p)), R0D=rep(R0D , length(p)),p=p, delta=delta,k=rep(k[i], length(p)), CaseVariance=mixstat[i,,1], ExtinctionProbability=mixstat[i,,2],R0star=mixstat[i,,3],ChainVariance=mixstat[i,,4],ProbabilityChainSizeLessEqual10=mixstat[i,,5]))
+for(i in 2:4) mstatdata<-bind_rows(mstatdata, data.frame(model="mixture", R0=rep(R0, length(p)), R0D=rep(R0D , length(p)),p=p, delta=delta,k=rep(k[i], length(p)), CaseVariance=mixstat[i,,1], ExtinctionProbability=mixstat[i,,2],R0star=mixstat[i,,3],ChainVariance=mixstat[i,,4],ProbabilityChainSizeLessEqual10=mixstat[i,,5],ProbChainSize1=mixstat[i,,6]))
 
 #add CV cases, major outbreak probability, chain mean, CV chain
 mstatdata<-mutate(mstatdata, CVCases=sqrt(CaseVariance)/R0, MajorOutbreak = 1-ExtinctionProbability, MeanChain = 1/(1-R0star),  CVChain=sqrt(ChainVariance)/MeanChain)
@@ -581,7 +593,7 @@ mstatdata<-mutate(mstatdata, CVCases=sqrt(CaseVariance)/R0, MajorOutbreak = 1-Ex
 
 ```{r}
 #Calculate base statistics:
-nstat<-5
+nstat<-6
   basestat<-matrix(NA, nrow=length(k), ncol=nstat)
   for(j in 1:length(k)){
     kval<-k[j]
@@ -591,12 +603,13 @@ nstat<-5
   basestat[j,3]<-NegBinomR0star(R0=R0, k=kval)#R0* needed for mean chain size
   basestat[j,4]<-variance.chainNegBinom(R0=R0, k=kval) #chain variance conditioned on extinction
   basestat[j,5]<-ProbabilityChainSizeLessthanEqualC(C=10, nbinomchain(1:10, R0, kval))
+  basestat[j,6]<-NegBinomProbZero(R0=R0, k=kval) #Prob chain size of 1
   }
 
 # each stat repeated times so for every value of p, there is a corresponding base statistic
-bstatdata<-data.frame(model="base", R0=rep(R0, length(p)), R0D=rep(R0D , length(p)),p=p,delta=delta, k=rep(k[1], length(p)), CaseVariance=rep(basestat[1,1],length(p)), ExtinctionProbability=rep(basestat[1,2],length(p)),R0star=rep(basestat[1,3],length(p)),ChainVariance=rep(basestat[1,4],length(p)), ProbabilityChainSizeLessEqual10=rep(basestat[1,5],length(p)))
+bstatdata<-data.frame(model="standard", R0=rep(R0, length(p)), R0D=rep(R0D , length(p)),p=p,delta=delta, k=rep(k[1], length(p)), CaseVariance=rep(basestat[1,1],length(p)), ExtinctionProbability=rep(basestat[1,2],length(p)),R0star=rep(basestat[1,3],length(p)),ChainVariance=rep(basestat[1,4],length(p)), ProbabilityChainSizeLessEqual10=rep(basestat[1,5],length(p)), ProbChainSize1=rep(basestat[1,6],length(p)))
 #put each data frame corresponding to each k value on top of each other
-for(i in 2:4) bstatdata<-bind_rows(bstatdata, data.frame(model="base", R0=rep(R0, length(p)), R0D=rep(R0D , length(p)),p=p, delta=delta,k=rep(k[i], length(p)), CaseVariance=rep(basestat[i,1],length(p)), ExtinctionProbability=rep(basestat[i,2],length(p)),R0star=rep(basestat[i,3],length(p)),ChainVariance=rep(basestat[i,4],length(p)), ProbabilityChainSizeLessEqual10=rep(basestat[i,5],length(p))))
+for(i in 2:4) bstatdata<-bind_rows(bstatdata, data.frame(model="standard", R0=rep(R0, length(p)), R0D=rep(R0D , length(p)),p=p, delta=delta,k=rep(k[i], length(p)), CaseVariance=rep(basestat[i,1],length(p)), ExtinctionProbability=rep(basestat[i,2],length(p)),R0star=rep(basestat[i,3],length(p)),ChainVariance=rep(basestat[i,4],length(p)), ProbabilityChainSizeLessEqual10=rep(basestat[i,5],length(p)), ProbChainSize1=rep(basestat[i,6],length(p))))
 
 #add CV cases, major outbreak probability, chain mean, CV chain
 bstatdata<-mutate(bstatdata,CVCases=sqrt(CaseVariance)/R0, MajorOutbreak = 1-ExtinctionProbability, MeanChain = 1/(1-R0star),  CVChain=sqrt(ChainVariance)/MeanChain)
@@ -607,17 +620,30 @@ statdata<-bind_rows(bstatdata, mstatdata)
 ```
 
 
+## Probability chain size of 1
+
+```{r}
+#CVcaseplot<-
+ggplot(statdata)+
+   geom_point(aes(x = p, y = ProbChainSize1, colour=model))+
+  geom_line(aes(x = p, y = ProbChainSize1, colour=model))+
+  facet_wrap(~k, labeller=label_both)+
+  ylab("Probability of zero secondary infections")+xlab("Proportion superspreaders p")
+#ggsave("Figure4.pdf", CVcaseplot, height=4, width=5)
+```
+
 ## CV offspring distribution
 
 
 
 ```{r}
-CVcaseplot<-ggplot(statdata)+
+#CVcaseplot<-
+ggplot(statdata)+
    geom_point(aes(x = p, y = CVCases, colour=model))+
   geom_line(aes(x = p, y = CVCases, colour=model))+
   facet_wrap(~k, labeller=label_both)+
-  ylab("Coefficient of variation of cases")+xlab("Proportion superspreaders p")
-ggsave("Figure4.pdf", CVcaseplot, height=4, width=5)
+  ylab("Coefficient of variation of secondary infections")+xlab("Proportion superspreaders p")
+#ggsave("Figure4.pdf", CVcaseplot, height=4, width=5)
 ```
 \textbf{Figure 3.} Coefficient of variation of secondary infections in the mixture model is highest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The coefficient of variation of secondary infections in the mixture model decreases as $p$ increases and approaches the value of the standard model as $p$ approaches 1. There is greater variability in the number of secondary infections in the mixture model compared to the base model, even if $k>1$, with the highest variability for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
 
@@ -626,12 +652,13 @@ ggsave("Figure4.pdf", CVcaseplot, height=4, width=5)
 
 
 ```{r}
-majoroutbreakplot<-ggplot(statdata)+
+majoroutbreakplot<-
+ggplot(statdata)+
    geom_point(aes(x = p, y = MajorOutbreak, colour=model))+
   geom_line(aes(x = p, y = MajorOutbreak, colour=model))+
   facet_wrap(~k, labeller=label_both)+
   ylab("Probability of major outbreak")+xlab("Proportion superspreaders p")
-ggsave("Figure5.pdf", majoroutbreakplot, height=4, width=5)
+ggsave("Figure7.pdf", majoroutbreakplot, height=4, width=5)
 ```
 \textbf{Figure 4.}Probability of a major outbreak in the mixture model is lowest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The probability of a major outbreak in the mixture model increases as $p$ increases and approaches the value of the standard model as $p$ approaches 1. There is smaller probability of major epidemics in the mixture model compared to the base model, even if $k>1$, with the lowest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
 
@@ -653,12 +680,13 @@ ggplot(statdata)+
 Fatter tail in the chain size distribution conditioned on extinction (i.e. restricting to small transmission chains that go extinct) will make the mean chain size conditioned on extinction larger. Perhaps not a true hallmark of superspreading but it is indicative of fatter tailed chain size distributions.
 
 ```{r}
-meanchainplot<-ggplot(statdata)+
+#meanchainplot<-
+ggplot(statdata)+
    geom_point(aes(x = p, y = MeanChain, colour=model))+
   geom_line(aes(x = p, y = MeanChain, colour=model))+
   facet_wrap(~k, labeller=label_both)+
   ylab("Mean chain size")+xlab("Proportion superspreaders p")
-ggsave("Figure6.pdf", meanchainplot, height=4, width=5)
+#ggsave("Figure6.pdf", meanchainplot, height=4, width=5)
 ```
 \textbf{Figure 6.}  Mean chain sizes are largest for large dispersion parameter $k$, small $p$ and large number of additional contacts. Mean chain sizes decrease as $p$ increases and approaches the value of the standard model as $p$ approaches 1. Mean chain sizes are larger in mixture models compared to the base model, even if $k>1$.
 
@@ -666,12 +694,13 @@ ggsave("Figure6.pdf", meanchainplot, height=4, width=5)
 
 
 ```{r}
-CVchainplot<-ggplot(statdata)+
+#CVchainplot<-
+ggplot(statdata)+
    geom_point(aes(x = p, y = CVChain, colour=model))+
   geom_line(aes(x = p, y = CVChain, colour=model))+
   facet_wrap(~k, labeller=label_both)+
   ylab("Coefficient of variation of chain size")+xlab("Proportion superspreaders p")
-ggsave("Figure7.pdf", CVchainplot, height=4, width=5)
+#ggsave("Figure7.pdf", CVchainplot, height=4, width=5)
 ```
 \textbf{Figure 7.} Coefficient of variation of transmission chain sizes in the mixture model is highest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The coefficient of variation of small chains that go extinct in the mixture model decreases as $p$ increases and approaches the value of the standard model as $p$ approaches 1.There is greater variability in chain sizes in the mixture model compared to the base model, even if $k>1$, with the highest coefficients of variation observed for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
 
@@ -679,13 +708,62 @@ Key statistics generated by base model with $k=2$ and mixture model with 10\% su
 ```{r}
 filter(statdata, p=="0.1" & k=="2")
 ```
+```{r}
+stattab<-filter(statdata, p=="0.1" & k=="2")%>%select(model, R0, R0D, p, delta, k, CaseVariance, ProbChainSize1, CVCases, MajorOutbreak, MeanChain, CVChain)
+write_csv(stattab, file="stats.csv")
+```
 
+Key statistics generated by mixture model with $k=4$ and mixture model with 20\% superspreaders:
+```{r}
+filter(statdata, p=="0.2" & k=="4" & model=="mixture")
+```
+The following standard and mixture models have similar frequency of large clusters but the variance of cases in the mixture model is predicted to be higher than the standard model, leading to greater mean and CV of chain size conditioned on extinction (and I think standard model would have higher prob of zero cases)
+```{r}
+filter(statdata, p=="0.2" & k=="0.5" & model=="standard")%>%select(model, R0, R0D, p, delta, k, CaseVariance, CVCases, ProbChainSize1, MajorOutbreak, MeanChain, CVChain)
+```
+```{r}
+filter(statdata, p=="0.1" & k=="2" & model=="mixture")%>%select(model, R0, R0D, p, delta, k, CaseVariance, CVCases, ProbChainSize1,MajorOutbreak, MeanChain, CVChain)
+```
+Key statistics generated by base model with $k=1$ and mixture model with 20\% superspreaders (note probability of major outbreak is similar to mixture model with $k=4$:
+```{r}
+filter(statdata, p=="0.2" & k=="1" & model=="standard")
+```
 Percentage change in key statistics generated by mixture model with 10\% superspreaders relative to base model, $k=2$:
 ```{r}
-df<-select(filter(statdata, p=="0.1" & k=="2"), CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+df<-select(filter(statdata, p=="0.1" & k=="2"), ProbChainSize1, CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
 (diff(as.matrix(df))*100)/df[1,]
 ```
 For example, mean chain sizes conditioned by extinction under a mixture model with 10\% of individuals belonging to the superspreader cohort and dispersion parameter of 2 are expected to be 38\% larger than the corresponding base model, and there is 41\% reduction in the probability of a major outbreak compared to the base model. 
+
+```{r}
+filmixstatsk05<-select(filter(statdata, model=="mixture",k=="0.5"), ProbChainSize1,CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+stanstatsk05<-select(filter(statdata, model=="standard",k=="0.5"), ProbChainSize1,CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+filmixstatsk1<-select(filter(statdata, model=="mixture",k=="1"), ProbChainSize1,CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+stanstatsk1<-select(filter(statdata, model=="standard",k=="1"), ProbChainSize1,CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+filmixstatsk2<-select(filter(statdata, model=="mixture",k=="2"), ProbChainSize1,CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+stanstatsk2<-select(filter(statdata, model=="standard",k=="2"), ProbChainSize1,CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+filmixstatsk4<-select(filter(statdata, model=="mixture",k=="4"), ProbChainSize1,CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+stanstatsk4<-select(filter(statdata, model=="standard",k=="4"), ProbChainSize1,CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+
+percentchangek05<-(filmixstatsk05-stanstatsk05)*100/stanstatsk05
+percentchangek1<-(filmixstatsk1-stanstatsk1)*100/stanstatsk1
+percentchangek2<-(filmixstatsk2-stanstatsk2)*100/stanstatsk2
+percentchangek4<-(filmixstatsk4-stanstatsk4)*100/stanstatsk4
+
+```
+
+Mean minor outbreak size increases with $k$, whereas CV of cases and chains declines with increasing $k$
+```{r}
+filter(statdata, p=="0.01" & model=="mixture")
+```
+
+```{r}
+select(filter(statdata, p=="0.01" & model=="standard"), k, MeanChain, CVChain)
+```
+
+```{r}
+select(filter(statdata, p=="0.01" & model=="mixture"), k, MeanChain, CVChain)
+```
 
 ## Control activities
 
@@ -794,30 +872,35 @@ ggplot(controlstat)+
 ```
 
 ```{r}
-#extplot<-
+extplot<-
 ggplot(controlstat)+
    geom_point(aes(x = Control, y = ExtinctionProbability, colour=Model))+
-  geom_line(aes(x = Control, y = ExtinctionProbability, colour=Model))
-#ggsave("Figure8.pdf", extplot, height=4, width=5)
+  geom_line(aes(x = Control, y = ExtinctionProbability, colour=Model))+
+  ylab("Extinction Probability")+xlab("Control level c")
+ggsave("Figure8.pdf", extplot, height=4, width=5)
 ```
 ```{r}
-#varmeanplot<-
+varmeanplot<-
 ggplot(controlstat)+
    geom_point(aes(x = Control, y = VarMeanRatio, colour=Model))+
-  geom_line(aes(x = Control, y = VarMeanRatio, colour=Model))
-#ggsave("Figure9.pdf", varmeanplot, height=4, width=5)
+  geom_line(aes(x = Control, y = VarMeanRatio, colour=Model))+
+  ylab("Variance to mean ratio")+xlab("Control level c")
+ggsave("Figure9.pdf", varmeanplot, height=4, width=5)
 ```
 ```{r}
 ggplot(controlstat)+
    geom_point(aes(x = Control, y = MajorOutbreak, colour=Model))+
-  geom_line(aes(x = Control, y = MajorOutbreak, colour=Model))
+  geom_line(aes(x = Control, y = MajorOutbreak, colour=Model))+
+  ylab("Probability of major outbreak ")+xlab("Control level c")
 ```
 ```{r}
 changeplot<-ggplot(controlstat)+
    geom_point(aes(x = Control, y = MajorOutbreakPercentageChange, colour=Model))+
-  geom_line(aes(x = Control, y = MajorOutbreakPercentageChange, colour=Model))
+  geom_line(aes(x = Control, y = MajorOutbreakPercentageChange, colour=Model))+
+  ylab("Percentage change in probability of major outbreak")+xlab("Control level c")
 ggsave("Figure10.pdf", changeplot, height=4, width=5)
 ```
+
 ```{r}
 #library(cowplot)
 
