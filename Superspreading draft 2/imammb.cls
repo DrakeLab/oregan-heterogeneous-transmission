@@ -3,7 +3,7 @@
 %%    IMA Journal of Numerical Analysis
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \NeedsTeXFormat{LaTeX2e}[1995/12/01]
-\ProvidesClass{imanum}
+\ProvidesClass{imammb}
               [2008/05/15 v1.5e
  Standard LaTeX document class]
 \newcommand\@ptsize{}
@@ -130,7 +130,7 @@
 \ProcessOptions
 \input{size1\@ptsize.clo}
 
-\usepackage{lastpage,}
+\usepackage{lastpage}
 %%%%%%%%%%%%%%%%%%%%trim size setting
 
 \textwidth145mm

@@ -1,0 +1,48 @@
+This is BibTeX, Version 0.99d (TeX Live 2021/W32TeX)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: main.aux
+The style file: amnat.bst
+Database file #1: paperpile.bib
+Warning--I didn't find a database entry for "??"
+You've used 25 entries,
+            2685 wiz_defined-function locations,
+            898 strings with 13665 characters,
+and the built_in function-call counts, 17510 in all, are:
+= -- 1430
+> -- 1525
+< -- 12
++ -- 568
+- -- 537
+* -- 1657
+:= -- 3313
+add.period$ -- 97
+call.type$ -- 25
+change.case$ -- 302
+chr.to.int$ -- 25
+cite$ -- 25
+duplicate$ -- 546
+empty$ -- 875
+format.name$ -- 615
+if$ -- 3244
+int.to.chr$ -- 1
+int.to.str$ -- 1
+missing$ -- 28
+newline$ -- 153
+num.names$ -- 102
+pop$ -- 364
+preamble$ -- 1
+purify$ -- 278
+quote$ -- 0
+skip$ -- 363
+stack$ -- 0
+substring$ -- 693
+swap$ -- 57
+text.length$ -- 1
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 216
+warning$ -- 0
+while$ -- 106
+width$ -- 0
+write$ -- 350
+(There was 1 warning)

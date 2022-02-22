@@ -1,0 +1,214 @@
+\begin{thebibliography}{25}
+\expandafter\ifx\csname natexlab\endcsname\relax\def\natexlab#1{#1}\fi
+\expandafter\ifx\csname url\endcsname\relax
+  \def\url#1{\texttt{#1}}\fi
+\expandafter\ifx\csname urlprefix\endcsname\relax\def\urlprefix{URL }\fi
+
+\bibitem[{Adam et~al.(2020)Adam, Wu, Wong, Lau, Tsang, Cauchemez, Leung, and
+  Cowling}]{Adam2020-xk}
+Adam, D.~C., Wu, P., Wong, J.~Y., Lau, E. H.~Y., Tsang, T.~K., Cauchemez, S.,
+  Leung, G.~M., and Cowling, B.~J.
+\newblock 2020.
+\newblock Clustering and superspreading potential of {SARS-CoV-2} infections in
+  hong kong.
+\newblock Nat. Med. 26:1714--1719.
+
+\bibitem[{Althouse et~al.(2020)Althouse, Wenger, Miller, Scarpino, Allard,
+  H{\'e}bert-Dufresne, and Hu}]{Althouse2020-dn}
+Althouse, B.~M., Wenger, E.~A., Miller, J.~C., Scarpino, S.~V., Allard, A.,
+  H{\'e}bert-Dufresne, L., and Hu, H.
+\newblock 2020.
+\newblock Superspreading events in the transmission dynamics of {SARS-CoV-2}:
+  Opportunities for interventions and control.
+\newblock PLoS Biol. 18:e3000897.
+
+\bibitem[{Anderson and Watson(1980)}]{Anderson1980-vq}
+Anderson, D. and Watson, R.
+\newblock 1980.
+\newblock On the spread of a disease with gamma distributed latent and
+  infectious periods.
+\newblock Biometrika 67:191--198.
+
+\bibitem[{Blumberg and Lloyd-Smith(2013)}]{Blumberg2013-xv}
+Blumberg, S. and Lloyd-Smith, J.~O.
+\newblock 2013.
+\newblock Inference of r(0) and transmission heterogeneity from the size
+  distribution of stuttering chains.
+\newblock PLoS Comput. Biol. 9:e1002993.
+
+\bibitem[{Britton and Lindenstrand(2009)}]{Britton2009-tt}
+Britton, T. and Lindenstrand, D.
+\newblock 2009.
+\newblock Epidemic modelling: aspects where stochasticity matters.
+\newblock Math. Biosci. 222:109--116.
+
+\bibitem[{Chen et~al.(2021)Chen, Bobrovitz, Premji, Koopmans, Fisman, and
+  Gu}]{Chen2021-wo}
+Chen, P.~Z., Bobrovitz, N., Premji, Z., Koopmans, M., Fisman, D.~N., and Gu,
+  F.~X.
+\newblock 2021.
+\newblock Heterogeneity in transmissibility and shedding {SARS-CoV-2} via
+  droplets and aerosols.
+\newblock Elife 10.
+
+\bibitem[{Cvijovi{\'c}(2011)}]{Cvijovic2011-ml}
+Cvijovi{\'c}, D.
+\newblock 2011.
+\newblock New identities for the partial bell polynomials.
+\newblock Appl. Math. Lett. 24:1544--1547.
+
+\bibitem[{Diekmann et~al.(2013)Diekmann, Heesterbeek, and
+  Britton}]{Diekmann2013-zu}
+Diekmann, O., Heesterbeek, H., and Britton, T., 2013.
+\newblock Mathematical Tools for Understanding Infectious Disease Dynamics.
+\newblock Princeton University Press.
+
+\bibitem[{Dwass(1969)}]{Dwass1969-gs}
+Dwass, M.
+\newblock 1969.
+\newblock The total progeny in a branching process and a related random walk.
+\newblock J. Appl. Probab. 6:682--686.
+
+\bibitem[{Funk et~al.(2010)Funk, Salath{\'e}, and Jansen}]{Funk2010-zj}
+Funk, S., Salath{\'e}, M., and Jansen, V. A.~A.
+\newblock 2010.
+\newblock Modelling the influence of human behaviour on the spread of
+  infectious diseases: a review.
+\newblock J. R. Soc. Interface 7:1247--1256.
+
+\bibitem[{Garske and Rhodes(2008)}]{Garske2008-ax}
+Garske, T. and Rhodes, C.~J.
+\newblock 2008.
+\newblock The effect of superspreading on epidemic outbreak size distributions.
+\newblock J. Theor. Biol. 253:228--237.
+
+\bibitem[{Goyal et~al.(2021)Goyal, Reeves, Cardozo-Ojeda, Schiffer, and
+  Mayer}]{Goyal2021-xr}
+Goyal, A., Reeves, D.~B., Cardozo-Ojeda, E.~F., Schiffer, J.~T., and Mayer,
+  B.~T.
+\newblock 2021.
+\newblock Viral load and contact heterogeneity predict {SARS-CoV-2}
+  transmission and super-spreading events.
+\newblock Elife 10.
+
+\bibitem[{Hamner et~al.(2020)Hamner, Dubbel, Capron, Ross, Jordan, Lee, Lynn,
+  Ball, Narwal, Russell, Patrick, and Leibrand}]{Hamner2020-zt}
+Hamner, L., Dubbel, P., Capron, I., Ross, A., Jordan, A., Lee, J., Lynn, J.,
+  Ball, A., Narwal, S., Russell, S., Patrick, D., and Leibrand, H.
+\newblock 2020.
+\newblock High {SARS-CoV-2} attack rate following exposure at a choir practice
+  --- skagit county, washington, march 2020.
+\newblock MMWR Morb. Mortal. Wkly. Rep. 69:606--610.
+
+\bibitem[{Illingworth et~al.(2021)Illingworth, Hamilton, Warne, Routledge,
+  Popay, Jackson, Fieldman, Meredith, Houldcroft, Hosmillo, Jahun, Caller,
+  Caddy, Yakovleva, Hall, Khokhar, Feltwell, Pinckert, Georgana, Chaudhry,
+  Curran, Parmar, Sparkes, Rivett, Jones, Sridhar, Forrest, Dymond, Grainger,
+  Workman, Ferris, Gkrania-Klotsas, Brown, Weekes, Baker, Peacock, Goodfellow,
+  Gouliouris, de~Angelis, and T{\"o}r{\"o}k}]{Illingworth2021-rz}
+Illingworth, Jr, C., Hamilton, W.~L., Warne, B., Routledge, M., Popay, A.,
+  Jackson, C., Fieldman, T., Meredith, L.~W., Houldcroft, C.~J., Hosmillo, M.,
+  Jahun, A.~S., Caller, L.~G., Caddy, S.~L., Yakovleva, A., Hall, G., Khokhar,
+  F.~A., Feltwell, T., Pinckert, M.~L., Georgana, I., Chaudhry, Y., Curran,
+  M.~D., Parmar, S., Sparkes, D., Rivett, L., Jones, N.~K., Sridhar, S.,
+  Forrest, S., Dymond, T., Grainger, K., Workman, C., Ferris, M.,
+  Gkrania-Klotsas, E., Brown, N.~M., Weekes, M.~P., Baker, S., Peacock, S.~J.,
+  Goodfellow, I.~G., Gouliouris, T., de~Angelis, D., and T{\"o}r{\"o}k, M.~E.
+\newblock 2021.
+\newblock Superspreaders drive the largest outbreaks of hospital onset
+  {COVID-19} infections.
+\newblock Elife 10.
+
+\bibitem[{Johnson(2002)}]{Johnson2002-nq}
+Johnson, W.~P.
+\newblock 2002.
+\newblock The curious history of fa{\`a} di bruno's formula.
+\newblock Am. Math. Mon. 109:217--234.
+
+\bibitem[{Keeling and Rohani(2008)}]{Keeling2008-sh}
+Keeling, M.~J. and Rohani, P., 2008.
+\newblock Modeling infectious diseases in humans and animals.
+\newblock Princeton University Press, Princeton.
+
+\bibitem[{Kremer et~al.(2021)Kremer, Torneri, Boesmans, Meuwissen, Verdonschot,
+  Vanden~Driessche, Althaus, Faes, and Hens}]{Kremer2021-bi}
+Kremer, C., Torneri, A., Boesmans, S., Meuwissen, H., Verdonschot, S.,
+  Vanden~Driessche, K., Althaus, C.~L., Faes, C., and Hens, N.
+\newblock 2021.
+\newblock Quantifying superspreading for {COVID-19} using poisson mixture
+  distributions.
+\newblock Sci. Rep. 11:14107.
+
+\bibitem[{Lemieux et~al.(2021)Lemieux, Siddle, Shaw, Loreth, Schaffner,
+  Gladden-Young, Adams, Fink, Tomkins-Tinch, Krasilnikova, DeRuff, Rudy, Bauer,
+  Lagerborg, Normandin, Chapman, Reilly, Anahtar, Lin, Carter, Myhrvold,
+  Kemball, Chaluvadi, Cusick, Flowers, Neumann, Cerrato, Farhat, Slater,
+  Harris, Branda, Hooper, Gaeta, Baggett, O'Connell, Gnirke, Lieberman,
+  Philippakis, Burns, Brown, Luban, Ryan, Turbett, LaRocque, Hanage, Gallagher,
+  Madoff, Smole, Pierce, Rosenberg, Sabeti, Park, and
+  MacInnis}]{Lemieux2021-ow}
+Lemieux, J.~E., Siddle, K.~J., Shaw, B.~M., Loreth, C., Schaffner, S.~F.,
+  Gladden-Young, A., Adams, G., Fink, T., Tomkins-Tinch, C.~H., Krasilnikova,
+  L.~A., DeRuff, K.~C., Rudy, M., Bauer, M.~R., Lagerborg, K.~A., Normandin,
+  E., Chapman, S.~B., Reilly, S.~K., Anahtar, M.~N., Lin, A.~E., Carter, A.,
+  Myhrvold, C., Kemball, M.~E., Chaluvadi, S., Cusick, C., Flowers, K.,
+  Neumann, A., Cerrato, F., Farhat, M., Slater, D., Harris, J.~B., Branda,
+  J.~A., Hooper, D., Gaeta, J.~M., Baggett, T.~P., O'Connell, J., Gnirke, A.,
+  Lieberman, T.~D., Philippakis, A., Burns, M., Brown, C.~M., Luban, J., Ryan,
+  E.~T., Turbett, S.~E., LaRocque, R.~C., Hanage, W.~P., Gallagher, G.~R.,
+  Madoff, L.~C., Smole, S., Pierce, V.~M., Rosenberg, E., Sabeti, P.~C., Park,
+  D.~J., and MacInnis, B.~L.
+\newblock 2021.
+\newblock Phylogenetic analysis of {SARS-CoV-2} in boston highlights the impact
+  of superspreading events.
+\newblock Science 371.
+
+\bibitem[{Lloyd(2001)}]{Lloyd2001-eq}
+Lloyd, A.~L.
+\newblock 2001.
+\newblock Realistic distributions of infectious periods in epidemic models:
+  Changing patterns of persistence and dynamics.
+\newblock Theor. Popul. Biol. 60:59--71.
+
+\bibitem[{Lloyd-Smith et~al.(2005)Lloyd-Smith, Schreiber, Kopp, and
+  Getz}]{Lloyd-Smith2005-ma}
+Lloyd-Smith, J.~O., Schreiber, S.~J., Kopp, P.~E., and Getz, W.~M.
+\newblock 2005.
+\newblock Superspreading and the effect of individual variation on disease
+  emergence.
+\newblock Nature 438:355--359.
+
+\bibitem[{Mode and Sleeman(2000)}]{Mode2000-hp}
+Mode, C.~J. and Sleeman, C.~K., 2000.
+\newblock Stochastic Processes in Epidemiology: {HIV/AIDS}, Other Infectious
+  Diseases and Computers.
+\newblock World Scientific.
+
+\bibitem[{Rock et~al.(2014)Rock, Brand, Moir, and Keeling}]{Rock2014-nc}
+Rock, K., Brand, S., Moir, J., and Keeling, M.~J.
+\newblock 2014.
+\newblock Dynamics of infectious diseases.
+\newblock Rep. Prog. Phys. 77:026602.
+
+\bibitem[{Sneppen et~al.(2021)Sneppen, Nielsen, Taylor, and
+  Simonsen}]{Sneppen2021-mr}
+Sneppen, K., Nielsen, B.~F., Taylor, R.~J., and Simonsen, L.
+\newblock 2021.
+\newblock Overdispersion in {COVID-19} increases the effectiveness of limiting
+  nonrepetitive contacts for transmission control.
+\newblock Proc. Natl. Acad. Sci. U. S. A. 118.
+
+\bibitem[{Wearing et~al.(2005)Wearing, Rohani, and Keeling}]{Wearing2005-oo}
+Wearing, H.~J., Rohani, P., and Keeling, M.~J.
+\newblock 2005.
+\newblock Appropriate models for the management of infectious diseases.
+\newblock PLoS Med. 2:e174.
+
+\bibitem[{Yan(2008)}]{Yan2008-jc}
+Yan, P., 2008.
+\newblock Distribution theory, stochastic processes and infectious disease
+  modelling.
+\newblock Pages 229--293 \emph{in} F.~Brauer, P.~van~den Driessche, and J.~Wu,
+  eds. Lecture Notes in Mathematical Epidemiology. Springer.
+
+\end{thebibliography}
