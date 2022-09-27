@@ -8,6 +8,7 @@ output: pdf_document
 ```{r setup, include=FALSE}
 #knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+# remotes::install_github("antiphon/BellB")
 library(BellB)
 #library(actuar) #simulate mixture branching process
 ```
