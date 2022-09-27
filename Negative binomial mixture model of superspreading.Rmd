@@ -376,10 +376,18 @@ pmf<-bind_rows(bdatapmf, mdatapmf)
 
 #pmfplot<-
 ggplot(pmf)+
-   geom_point(aes(x = Cases, y = Proportion, colour=Model))+
-  geom_line(aes(x = Cases, y = Proportion, colour=Model))+
+#  geom_point(aes(x = Cases, y = Proportion, colour=Model))+
+  geom_point(aes(x = Cases, y = Proportion, shape=Model, colour=Model), alpha=1)+
+  geom_line(aes(x = Cases, y = Proportion, colour=Model), 
+            linetype="dotted", alpha=.6, show.legend = FALSE)+
+  scale_x_continuous(breaks=1:10)+
   facet_wrap(~k, labeller=label_both)+
-  xlab("Number of secondary infections N = j")+ylab("Probability P(N=j)")
+  xlab("Number of secondary infections N = j")+ylab("Probability P(N=j)")+
+  theme_minimal()+
+  theme(panel.grid.minor=element_blank(), 
+        panel.border = element_rect(color = "darkgrey", fill = NA, size = 1))+
+  scale_colour_manual(values=c("#000000","#5798d1"))
+
 #ggsave("Figure1.pdf", pmfplot, height=4, width=5)
 ```
 
@@ -499,15 +507,22 @@ clusterdistrib<-bind_rows(clusterbase, clustermix)
 
 ```{r}
 #Plot shows that chain size distribution from a mixture is fatter tailed when $R_0>1$:
-#ggsave("Figure1.pdf", pmfplot, height=4, width=5)
+
 #pgfplot<-
 ggplot(clusterdistrib)+
-   geom_point(aes(x = Chains, y = Proportion, colour=Model))+
-  geom_line(aes(x = Chains, y = Proportion, colour=Model))+
+  geom_point(aes(x = Chains, y = Proportion, shape=Model, colour=Model), alpha=1)+
+  geom_line(aes(x = Chains, y = Proportion, colour=Model), 
+            linetype="dotted", alpha=.6, show.legend = FALSE)+
+  scale_x_continuous(breaks=1:10, limits = c(1,10))+
   facet_wrap(~k, labeller=label_both)+
-  xlim(1,10)+
-  xlab("Chain size Y=y") + ylab("Probability P(Y=y)")
+  # xlim(1,10)+
+  xlab("Chain size Y=y") + ylab("Probability P(Y=y)")+
+  theme_minimal()+
+  theme(panel.grid.minor=element_blank(), 
+        panel.border = element_rect(color = "darkgrey", fill = NA, size = 1))+
+  scale_colour_manual(values=c("#000000","#5798d1"))
 #ggsave("Figure2.pdf", pgfplot, height=4, width=5)
+
 ```
 
 ## Complementary cumulative distribution function of chain sizes
@@ -518,15 +533,26 @@ Recall that if $R_0>1$ the true probability distribution of chains is bimodal, i
 
 ```{r}
 #Plot shows that chain size distribution from a mixture is fatter tailed when $R_0>1$:
-#ggsave("Figure1.pdf", pmfplot, height=4, width=5)
-#CompCumuDistplot<-
+
+CompCumuDistplot<-
 ggplot(clusterdistrib)+
-   geom_point(aes(x = Chains, y = CompCumuProb, colour=Model))+
-  geom_line(aes(x = Chains, y = CompCumuProb, colour=Model))+
-  geom_line(aes(x = Chains, y = MajorOutbreak, colour=Model))+
+  geom_point(aes(x = Chains, y = CompCumuProb, shape=Model, colour=Model), alpha=1)+
+  geom_line(aes(x = Chains, y = CompCumuProb, colour=Model), 
+            linetype="dotted", alpha=.6, show.legend = FALSE)+
+  geom_line(aes(x = Chains, y = MajorOutbreak, colour=Model),
+            show.legend = FALSE)+
+  scale_x_continuous(breaks=seq(0, 20, 5), 
+                     minor_breaks = 1:20,
+                     limits = c(1,20))+
   facet_wrap(~k, labeller=label_both)+
-  xlab("Chain size y") + ylab("Proportion of chains > y")
-#ggsave("Figure3.pdf", CompCumuDistplot, height=4, width=5)
+  xlab("Chain size y") + ylab("Proportion of chains > y")+
+  theme_minimal()+
+  theme(#panel.grid.minor=element_blank(), 
+        panel.border = element_rect(color = "darkgrey", fill = NA, size = 1))+
+  scale_colour_manual(values=c("#000000","#5798d1"))
+
+ggsave("Figure3.pdf", CompCumuDistplot, height=4, width=5)
+
 ```
 
 ## Statistics that show hallmarks of transmission heterogeneity
