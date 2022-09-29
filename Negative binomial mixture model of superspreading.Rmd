@@ -356,7 +356,7 @@ delta<-(R0-R0D)/p
 R0A<-R0D+delta
 ```
 
-```{r}
+```{r Figure2}
 nend<-10 #max chain size
 #base data is negative binomial model, R0=2, dispersion parameter = k
 basedata<-matrix(NA, nrow=11, ncol=4) #cols are variables, rows are observations
@@ -374,21 +374,22 @@ for(i in 2:4) bdatapmf<-bind_rows(bdatapmf,data.frame(Cases=0:10, Proportion=bas
 
 pmf<-bind_rows(bdatapmf, mdatapmf)
 
-#pmfplot<-
+
+pmfplot<-
 ggplot(pmf)+
-#  geom_point(aes(x = Cases, y = Proportion, colour=Model))+
-  geom_point(aes(x = Cases, y = Proportion, shape=Model, colour=Model), alpha=1)+
-  geom_line(aes(x = Cases, y = Proportion, colour=Model), 
-            linetype="dotted", alpha=.6, show.legend = FALSE)+
-  scale_x_continuous(breaks=1:10)+
-  facet_wrap(~k, labeller=label_both)+
+  geom_bar(aes(x = Cases, y = Proportion, fill = Model), 
+           position = "dodge", stat = "identity", width=.3)+
+  scale_x_continuous(breaks=0:10)+
+  facet_wrap(~k, labeller=label_bquote(k == .(k)))+
   xlab("Number of secondary infections N = j")+ylab("Probability P(N=j)")+
   theme_minimal()+
-  theme(panel.grid.minor=element_blank(), 
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor=element_blank(), 
         panel.border = element_rect(color = "darkgrey", fill = NA, size = 1))+
-  scale_colour_manual(values=c("#000000","#5798d1"))
+  scale_fill_manual(values=c("#000000","#5798d1"))
 
-#ggsave("Figure1.pdf", pmfplot, height=4, width=5)
+ggsave("Figure2.pdf", pmfplot, height=9, width=14.5, units="cm")
+pmfplot
 ```
 
 
@@ -505,23 +506,38 @@ clusterdistrib<-bind_rows(clusterbase, clustermix)
 ```
 
 
-```{r}
+```{r Figure3}
 #Plot shows that chain size distribution from a mixture is fatter tailed when $R_0>1$:
 
-#pgfplot<-
+# #pgfplot<-
+# ggplot(clusterdistrib)+
+#   geom_point(aes(x = Chains, y = Proportion, shape=Model, colour=Model), alpha=1)+
+#   geom_line(aes(x = Chains, y = Proportion, colour=Model), 
+#             linetype="dotted", alpha=.6, show.legend = FALSE)+
+#   scale_x_continuous(breaks=1:10, limits = c(1,10))+
+#   facet_wrap(~k, labeller=label_both)+
+#   # xlim(1,10)+
+#   xlab("Chain size Y=y") + ylab("Probability P(Y=y)")+
+#   theme_minimal()+
+#   theme(panel.grid.minor=element_blank(), 
+#         panel.border = element_rect(color = "darkgrey", fill = NA, size = 1))+
+#   scale_colour_manual(values=c("#000000","#5798d1"))
+
+pmfplot2<-
 ggplot(clusterdistrib)+
-  geom_point(aes(x = Chains, y = Proportion, shape=Model, colour=Model), alpha=1)+
-  geom_line(aes(x = Chains, y = Proportion, colour=Model), 
-            linetype="dotted", alpha=.6, show.legend = FALSE)+
-  scale_x_continuous(breaks=1:10, limits = c(1,10))+
-  facet_wrap(~k, labeller=label_both)+
-  # xlim(1,10)+
+  geom_bar(aes(x = Chains, y = Proportion, fill = Model), 
+           position = "dodge", stat = "identity", width=.3)+
+  scale_x_continuous(breaks=1:10, limits = c(0,10))+
+  facet_wrap(~k, labeller=label_bquote(k == .(k)))+
   xlab("Chain size Y=y") + ylab("Probability P(Y=y)")+
   theme_minimal()+
-  theme(panel.grid.minor=element_blank(), 
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor=element_blank(), 
         panel.border = element_rect(color = "darkgrey", fill = NA, size = 1))+
-  scale_colour_manual(values=c("#000000","#5798d1"))
-#ggsave("Figure2.pdf", pgfplot, height=4, width=5)
+  scale_fill_manual(values=c("#000000","#5798d1"))
+
+ggsave("Figure3.pdf", pmfplot2, height=9, width=14.5, units="cm")
+pmfplot2
 
 ```
 
@@ -531,27 +547,37 @@ Recall that if $R_0>1$ the true probability distribution of chains is bimodal, i
 
 
 
-```{r}
+```{r Figure4}
 #Plot shows that chain size distribution from a mixture is fatter tailed when $R_0>1$:
+
+probmajoroutbreak <- clusterdistrib %>% 
+  group_by(k,Model) %>% 
+  summarise(ProbMajorOutbreak = max(MajorOutbreak))
 
 CompCumuDistplot<-
 ggplot(clusterdistrib)+
-  geom_point(aes(x = Chains, y = CompCumuProb, shape=Model, colour=Model), alpha=1)+
-  geom_line(aes(x = Chains, y = CompCumuProb, colour=Model), 
-            linetype="dotted", alpha=.6, show.legend = FALSE)+
-  geom_line(aes(x = Chains, y = MajorOutbreak, colour=Model),
-            show.legend = FALSE)+
+  geom_bar(aes(x = Chains, y = CompCumuProb, fill = Model), 
+           position = "dodge", stat = "identity", width=.5)+
+  geom_segment(aes(y = ProbMajorOutbreak, yend = ProbMajorOutbreak, colour = Model),
+               data=probmajoroutbreak,
+               x = 0, xend = 21, size=.3)+
+  geom_text(aes(y = ProbMajorOutbreak, colour = Model, label=round(ProbMajorOutbreak,3)), 
+            data = probmajoroutbreak, 
+            x = 21, size = 3, hjust = 0)+
   scale_x_continuous(breaks=seq(0, 20, 5), 
                      minor_breaks = 1:20,
-                     limits = c(1,20))+
-  facet_wrap(~k, labeller=label_both)+
+                     limits = c(0,23))+
+  facet_wrap(~k, labeller=label_bquote(k == .(k)))+
   xlab("Chain size y") + ylab("Proportion of chains > y")+
   theme_minimal()+
-  theme(#panel.grid.minor=element_blank(), 
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(), 
         panel.border = element_rect(color = "darkgrey", fill = NA, size = 1))+
+  scale_fill_manual(values=c("#000000","#5798d1"))+
   scale_colour_manual(values=c("#000000","#5798d1"))
 
-ggsave("Figure3.pdf", CompCumuDistplot, height=4, width=5)
+ggsave("Figure4.pdf", CompCumuDistplot, height=9, width=14.5, units="cm")
+CompCumuDistplot
 
 ```
 
@@ -650,13 +676,14 @@ statdata<-bind_rows(bstatdata, mstatdata)
 ## Probability chain size of 1
 
 ```{r}
-#CVcaseplot<-
+probzerosecondplot<-
 ggplot(statdata)+
    geom_point(aes(x = p, y = ProbChainSize1, colour=model))+
   geom_line(aes(x = p, y = ProbChainSize1, colour=model))+
   facet_wrap(~k, labeller=label_both)+
   ylab("Probability of zero secondary infections")+xlab("Proportion superspreaders p")
-#ggsave("Figure4.pdf", CVcaseplot, height=4, width=5)
+ggsave("probzerosecondplot.pdf", probzerosecondplot, height=4, width=5)
+probzerosecondplot
 ```
 
 ## CV offspring distribution
@@ -664,72 +691,77 @@ ggplot(statdata)+
 
 
 ```{r}
-#CVcaseplot<-
+CVcaseplot<-
 ggplot(statdata)+
    geom_point(aes(x = p, y = CVCases, colour=model))+
   geom_line(aes(x = p, y = CVCases, colour=model))+
   facet_wrap(~k, labeller=label_both)+
   ylab("Coefficient of variation of secondary infections")+xlab("Proportion superspreaders p")
-#ggsave("Figure4.pdf", CVcaseplot, height=4, width=5)
+ggsave("CVcaseplot.pdf", CVcaseplot, height=4, width=5)
+CVcaseplot
 ```
-\textbf{Figure 3.} Coefficient of variation of secondary infections in the mixture model is highest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The coefficient of variation of secondary infections in the mixture model decreases as $p$ increases and approaches the value of the standard model as $p$ approaches 1. There is greater variability in the number of secondary infections in the mixture model compared to the base model, even if $k>1$, with the highest variability for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
+\textbf{Figure X.} Coefficient of variation of secondary infections in the mixture model is highest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The coefficient of variation of secondary infections in the mixture model decreases as $p$ increases and approaches the value of the standard model as $p$ approaches 1. There is greater variability in the number of secondary infections in the mixture model compared to the base model, even if $k>1$, with the highest variability for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
 
 ## Probability of major outbreak
 
-
-
 ```{r}
-#majoroutbreakplot<-
+majoroutbreakplot<-
 ggplot(statdata)+
    geom_point(aes(x = p, y = MajorOutbreak, colour=model))+
   geom_line(aes(x = p, y = MajorOutbreak, colour=model))+
   facet_wrap(~k, labeller=label_both)+
   ylab("Probability of major outbreak")+xlab("Proportion superspreaders p")
-#ggsave("Figure7.pdf", majoroutbreakplot, height=4, width=5)
+ggsave("majoroutbreakplot.pdf", majoroutbreakplot, height=4, width=5)
+majoroutbreakplot
 ```
-\textbf{Figure 4.}Probability of a major outbreak in the mixture model is lowest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The probability of a major outbreak in the mixture model increases as $p$ increases and approaches the value of the standard model as $p$ approaches 1. There is smaller probability of major epidemics in the mixture model compared to the base model, even if $k>1$, with the lowest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
+\textbf{Figure X.}Probability of a major outbreak in the mixture model is lowest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The probability of a major outbreak in the mixture model increases as $p$ increases and approaches the value of the standard model as $p$ approaches 1. There is smaller probability of major epidemics in the mixture model compared to the base model, even if $k>1$, with the lowest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
 
 ## Probability of observing a transmission chain of size $\leq$ 10
 
  
 
 ```{r}
-ggplot(statdata)+
-   geom_point(aes(x = p, y = ProbabilityChainSizeLessEqual10, colour=model))+
+minoroutbreakplot <- 
+  ggplot(statdata)+
+  geom_point(aes(x = p, y = ProbabilityChainSizeLessEqual10, colour=model))+
   geom_line(aes(x = p, y = ProbabilityChainSizeLessEqual10, colour=model))+
   facet_wrap(~k, labeller=label_both)+
   ylab("Probability of minor outbreak (less than or equal to 10 cases)")+xlab("Proportion superspreaders p")
+ggsave("minoroutbreakplot.pdf", minoroutbreakplot, height=4, width=5)
+majoroutbreakplot
 ```
-\textbf{Figure 5.} Probability of observing a transmission chain of size $\leq$ 10 in the mixture model is highest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The probability decreases as $p$ increases and approaches the value of the standard model as $p$ approaches 1. There is larger probability of observing small chains that go extinct in the mixture model compared to the base model, with the highest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts.
+\textbf{Figure X.} Probability of observing a transmission chain of size $\leq$ 10 in the mixture model is highest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The probability decreases as $p$ increases and approaches the value of the standard model as $p$ approaches 1. There is larger probability of observing small chains that go extinct in the mixture model compared to the base model, with the highest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts.
 
 ## Mean chain size
 
 Fatter tail in the chain size distribution conditioned on extinction (i.e. restricting to small transmission chains that go extinct) will make the mean chain size conditioned on extinction larger. Perhaps not a true hallmark of superspreading but it is indicative of fatter tailed chain size distributions.
 
 ```{r}
-#meanchainplot<-
+meanchainplot<-
 ggplot(statdata)+
    geom_point(aes(x = p, y = MeanChain, colour=model))+
   geom_line(aes(x = p, y = MeanChain, colour=model))+
   facet_wrap(~k, labeller=label_both)+
   ylab("Mean chain size")+xlab("Proportion superspreaders p")
-#ggsave("Figure6.pdf", meanchainplot, height=4, width=5)
+ggsave("meanchainplot.pdf", meanchainplot, height=4, width=5)
+meanchainplot
 ```
-\textbf{Figure 6.}  Mean chain sizes are largest for large dispersion parameter $k$, small $p$ and large number of additional contacts. Mean chain sizes decrease as $p$ increases and approaches the value of the standard model as $p$ approaches 1. Mean chain sizes are larger in mixture models compared to the base model, even if $k>1$.
+\textbf{Figure X.}  Mean chain sizes are largest for large dispersion parameter $k$, small $p$ and large number of additional contacts. Mean chain sizes decrease as $p$ increases and approaches the value of the standard model as $p$ approaches 1. Mean chain sizes are larger in mixture models compared to the base model, even if $k>1$.
 
 ## CV chain size
 
 
 ```{r}
-#CVchainplot<-
+CVchainplot<-
 ggplot(statdata)+
    geom_point(aes(x = p, y = CVChain, colour=model))+
   geom_line(aes(x = p, y = CVChain, colour=model))+
   facet_wrap(~k, labeller=label_both)+
   ylab("Coefficient of variation of chain size")+xlab("Proportion superspreaders p")
-#ggsave("Figure7.pdf", CVchainplot, height=4, width=5)
+ggsave("CVchainplot.pdf", CVchainplot, height=4, width=5)
+CVchainplot
 ```
-\textbf{Figure 7.} Coefficient of variation of transmission chain sizes in the mixture model is highest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The coefficient of variation of small chains that go extinct in the mixture model decreases as $p$ increases and approaches the value of the standard model as $p$ approaches 1.There is greater variability in chain sizes in the mixture model compared to the base model, even if $k>1$, with the highest coefficients of variation observed for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
+\textbf{Figure X.} Coefficient of variation of transmission chain sizes in the mixture model is highest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The coefficient of variation of small chains that go extinct in the mixture model decreases as $p$ increases and approaches the value of the standard model as $p$ approaches 1.There is greater variability in chain sizes in the mixture model compared to the base model, even if $k>1$, with the highest coefficients of variation observed for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
 
 Key statistics generated by base model with $k=2$ and mixture model with 10\% superspreaders:
 ```{r}
@@ -894,52 +926,112 @@ controlstat<-mutate(controlstat, MajorOutbreakPercentageChange=(MajorOutbreak-mj
 Here we show that control strategies have different impacts on probability of extinction and variance to mean ratio as a function of control effort even when the threshold for extinction is the same for all three strategies ($c^S = c^{SR} = 8/9$). Control actions that act on both groups lead to greater heterogeneity in outbreaks (i.e., higher variance to mean ratio and coefficient of variation in secondary infections) than control measures that act on superspreaders only (e.g., reducing the number of additional contacts $\delta$ and reducing the proportion of superspreaders $p$). 
 
 ```{r}
-ggplot(controlstat)+
-   geom_point(aes(x = Control, y = CVCases, colour=Model))+
-  geom_line(aes(x = Control, y = CVCases, colour=Model))
+# ggplot(controlstat)+
+#    geom_point(aes(x = Control, y = CVCases, colour=Model))+
+#   geom_line(aes(x = Control, y = CVCases, colour=Model))
 ```
+```{r}
+controlstat2 <- controlstat %>% 
+  mutate(across('Model', 
+                str_replace, 
+                'Control on both groups', 
+                'both groups')) %>%
+  mutate(across('Model', 
+                str_replace, 
+                'Control on superspreading proportion', 
+                'superspreading proportion')) %>%
+  mutate(across('Model', 
+                str_replace, 
+                'Control on additional contacts', 
+                'additional contacts')) %>%
+  rename(ControlLevel = Control,
+         Control = Model) %>% 
+  mutate(Control = factor(Control, 
+                        levels = c("both groups", 
+                                   "superspreading proportion", 
+                                   "additional contacts")))
+```
+
 
 ```{r}
 extplot<-
-ggplot(controlstat)+
-   geom_point(aes(x = Control, y = ExtinctionProbability, colour=Model))+
-  geom_line(aes(x = Control, y = ExtinctionProbability, colour=Model))+
-  ylab("Extinction Probability")+xlab("Control level c")
-ggsave("Figure8.pdf", extplot, height=4, width=5)
+ggplot(controlstat2)+
+  geom_line(aes(x = ControlLevel, y = ExtinctionProbability, colour=Control, linetype = Control),
+            size = 1, alpha=1,
+            show.legend = FALSE)+
+  ylab("Extinction Probability")+
+  xlab("Control level c")+
+  theme_minimal()+
+  theme(panel.border = element_rect(color = "darkgrey", fill = NA, size = 1),
+        plot.margin = margin(l = 24, unit = "pt"))+
+  scale_colour_manual(values=c("#000000","#226e83","#e2908c"))  
 ```
+
+
 ```{r}
 varmeanplot<-
-ggplot(controlstat)+
-   geom_point(aes(x = Control, y = VarMeanRatio, colour=Model))+
-  geom_line(aes(x = Control, y = VarMeanRatio, colour=Model))+
-  ylab("Variance to mean ratio")+xlab("Control level c")
-ggsave("Figure9.pdf", varmeanplot, height=4, width=5)
-```
-```{r}
-ggplot(controlstat)+
-   geom_point(aes(x = Control, y = MajorOutbreak, colour=Model))+
-  geom_line(aes(x = Control, y = MajorOutbreak, colour=Model))+
-  ylab("Probability of major outbreak ")+xlab("Control level c")
-```
-```{r}
-changeplot<-ggplot(controlstat)+
-   geom_point(aes(x = Control, y = MajorOutbreakPercentageChange, colour=Model))+
-  geom_line(aes(x = Control, y = MajorOutbreakPercentageChange, colour=Model))+
-  ylab("Percentage change in probability of major outbreak")+xlab("Control level c")
-ggsave("Figure10.pdf", changeplot, height=4, width=5)
+ggplot(controlstat2)+
+  geom_line(aes(x = ControlLevel, y = VarMeanRatio, colour=Control, linetype = Control), 
+            size = 1, alpha=1)+
+  ylab("Variance to \nmean ratio")+
+  xlab("Control level c")+
+  theme_minimal()+
+  theme(panel.border = element_rect(color = "darkgrey", fill = NA, size = 1),
+        legend.justification=c(0,1),
+        legend.position="top",
+        legend.key.width= unit(.4, 'in'),
+        plot.margin = margin(l = 24, unit = "pt")
+        )+
+  scale_colour_manual(values=c("#000000","#226e83","#e2908c"))
 ```
 
 ```{r}
-#library(cowplot)
+# ggplot(controlstat)+
+#   geom_point(aes(x = Control, y = MajorOutbreak, colour=Model))+
+#   geom_line(aes(x = Control, y = MajorOutbreak, colour=Model))+
+#   ylab("Probability of major outbreak ")+xlab("Control level c")
+```
 
-#iris1 <- ggplot(controlstat)+
- #  geom_point(aes(x = Control, y = ExtinctionProbability, colour=Model))+
-#  geom_line(aes(x = Control, y = ExtinctionProbability, colour=Model))
 
-#iris2 <- ggplot(controlstat)+
-#   geom_point(aes(x = Control, y = MajorOutbreakPercentageChange, colour=Model))+
-#  geom_line(aes(x = Control, y = MajorOutbreakPercentageChange, colour=Model))
+```{r}
+changeplot<-
+  ggplot(controlstat2)+
+  geom_line(aes(x = ControlLevel, y = MajorOutbreakPercentageChange, 
+                colour=Control, linetype = Control), 
+            size = 1, alpha=1,
+            show.legend = FALSE)+
+  ylab("Percentage change\nin probability of\nmajor outbreak")+
+  xlab("Control level c")+
+  theme_minimal()+
+  theme(#panel.grid.minor=element_blank(), 
+        panel.border = element_rect(color = "darkgrey", fill = NA, size = 1),
+        plot.margin = margin(l = 24, unit = "pt")
+        )+
+  scale_colour_manual(values=c("#000000","#226e83","#e2908c"))
+```
 
-#plot_grid(iris1, iris2, labels = "AUTO")
+```{r Figure5}
+library(egg)
+controlplot <- ggarrange(varmeanplot +
+            theme(axis.title.x=element_blank(),
+                  axis.text.x=element_blank(),
+                  axis.ticks.x=element_blank(),
+                  plot.margin = margin(b = 1),
+                  axis.title.y = element_text(size=10),
+                  legend.text=element_text(size=6.5)
+                  ), 
+          extplot+
+            theme(axis.title.x=element_blank(),
+                  axis.text.x=element_blank(),
+                  axis.ticks.x=element_blank(),
+                  plot.margin = margin(b = 1),
+                  axis.title.y = element_text(size=10)
+                  ), 
+          changeplot+
+            theme(axis.title.y = element_text(size=10)), 
+          nrow = 3, ncol = 1#,
+          # labels = c('a','b','c')
+          )
+ggsave("Figure5.pdf", controlplot, height=13, width=14.5, units="cm")
 ```
 
