@@ -1,0 +1,1039 @@
+---
+title: 'Finite mixture models of superspreading in epidemics: code and figures'
+header-includes: \usepackage{amsmath}
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r setup, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+# remotes::install_github("antiphon/BellB")
+library(BellB)
+#library(actuar) #simulate mixture branching process
+```
+
+```{r global-options, echo=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+
+```{r}
+NegBinmixturedeviate<- function(m, p, R0D, k, delta) {  
+  #Returns a vector of m neg binom mixture deviates
+  # Assumes a finite mixture of two Poisson distributions, with prob p and 1-p respectively, 0<p<1
+  #1 = success = aerosol
+  #0 = failure = direct contact
+  #rbinom = one bernoulli trial for direct transmission
+  #n = number of observations = 1
+  #size = number of trials =1 (bernoulli) per observation
+  #if success, deviate = rnbinom(R0A, k) otherwise rnbinom(R0D, k)
+  R0A<-R0D +delta
+  deviate<-numeric(m) #number of deviates
+  for(i in 1:m){
+deviate[i]<-ifelse(rbinom(1, size=1, prob = p)==1, rnbinom(1,mu=R0A, size=k), rnbinom(1,mu=R0D, size=k))
+  }
+  return(deviate)
+}
+
+R0fn<-function(p, R0D, R0A){
+R0<- p*R0D+(1-p)*R0A
+}
+
+R0adel<-function(R0D, delta){
+  R0A<-R0D + delta
+}
+
+
+NegBinomGen<-function(s, R0, k){
+  #returns s = Q(s), where Q(s) = pgf of negative binomial
+  gen<-1/(1 + (R0/k)*(1 - s))^k -s #solve prob generating fn = s for s. Note R0 > 1 otherwise prob of extinction = 1
+}
+
+NegBinomMixtureGen<-function(s, p, R0D,k, delta){
+  #R0A = R0D + delta
+  R0A<-R0D + delta
+  gen<-p/(1 + (R0A/k)*(1 - s))^k+(1-p)/(1 + (R0D/k)*(1 - s))^k -s
+}
+
+NegBinomMixProbZero<-function(p, R0D, k, delta){
+  R0A<-R0D + delta
+  prob<-(p)*(1+R0A/k)^(-k)+(1-p)*(1+R0D/k)^(-k)
+}
+
+NegBinomProbZero<-function(R0, k){
+  prob<-(1+R0/k)^(-k)
+}
+
+mean.chain<-function(R0){ 
+  #Argument R0 can be R0 if R0<1, if R0 >1, compute R0*
+  meanchain<-1/(1-R0)
+}
+
+#variance of offspring function
+varNegBinomoffspring<-function(R0,k){ 
+  v<-R0*(1+R0/k)
+}
+
+#variance of offspring function
+varNegBinommixtureoffspring<-function(p, R0D,k, delta){ 
+  #variance is concave up quadratic function of p
+  v<-R0D*(1+R0D/k) + p*delta*(1 + delta*(1-p) + (2*R0D+delta)/k)
+}
+
+NegBinomR0star<-function(R0=1.5, k){
+  #R0 needs to be bigger than 1
+  #R0* = Q'(z) evaluated at prob of extinction z < 1
+  extprob<-uniroot(NegBinomGen, c(0, 0.99), R0=R0, k=k)$root
+  R0star<-R0*(1+(R0/k)*(1-extprob))^(-k-1)
+}
+
+NegBinomMixR0star<-function(p, R0D,k, delta){
+  R0A<-R0D + delta
+  extprob<-uniroot(NegBinomMixtureGen, c(0, 0.99),  p=p, R0D=R0D, k=k, delta=delta)$root
+  R0star<-p*R0A*(1+(R0A/k)*(1-extprob))^(-k-1)+(1-p)*R0D*(1+(R0D/k)*(1-extprob))^(-k-1)
+}
+
+
+variance.chainNegBinom<-function(R0,k){ 
+  #Argument: R0 > 1, dispersion parameter k
+  #Find variance of chain conditioned on extinction
+  #do i need a different function for R0<1??
+  extprob<-uniroot(NegBinomGen, c(0, 0.99), R0=R0, k=k)$root
+  R0star<-NegBinomR0star(R0,k)
+  #need Q'"(z) evaluated at prob of extinction z < 1
+  pgf2atextprob<-(R0^2)*((k+1)/k)*(1+(R0/k)*(1-extprob))^(-k-2)
+  #Formula from Yan 2008:                                 
+  varchain<-(extprob*pgf2atextprob+R0star*(1-R0star))/(1-R0star)^3
+  return(varchain)
+}
+
+variance.chainNegBinomMix<-function(p, R0D,k, delta){ 
+  #Argument: R0 > 1, R0A = (R0 - p R0^D) /(1-p)
+  R0A<-R0D + delta
+  extprob<-uniroot(NegBinomMixtureGen, c(0, 0.99),  p=p, R0D=R0D, k=k, delta=delta)$root
+  R0star<-NegBinomMixR0star(p,R0D,k, delta)
+  #need Q'"(z) evaluated at prob of extinction z < 1
+  pgf2atextprob<-p*(R0A^2)*((k+1)/k)*(1+(R0A/k)*(1-extprob))^(-k-2)+(1-p)*(R0D^2)*((k+1)/k)*(1+(R0D/k)*(1-extprob))^(-k-2)
+  varchain<-(extprob*pgf2atextprob+R0star*(1-R0star))/(1-R0star)^3
+  return(varchain)
+  }
+
+
+
+gNNB<-function(n, p, R0D, R0A, k){
+  #inner function - negative binomial mixture
+  #find its nth derivative
+  q1 <- (1+R0A/k)
+  q2 <- (1+R0D/k)
+  
+  if(n==1) {
+    gn<-p*R0A*q1^(-k-1)+(1-p)*R0D*q2^(-k-1)
+  }
+  else if (n==2){
+    gn<-p*((R0A^2)/k)*(k+1)*q1^(-k-2)+(1-p)*((R0D^2)/k)*(k+1)*q2^(-k-2)
+  }
+  else if (n>2) {
+    pvec <- (k+1):(k+n-1)
+  ppvec<-prod(pvec)
+  #gn<-p*k*ppvec*((R0A/k)^n)*(1+R0A/k)^(-n-k)+(1-p)*(k)*ppvec*((R0D/k)^n)*(1+R0D/k)^(-n-k)
+  gn<-p*((R0A/k)^n)*(k*ppvec)*q1^(-k-n)+(1-p)*((R0D/k)^n)*(k*ppvec)*q2^(-k-n) 
+  }
+  return(gn) 
+}
+
+fNrNB<-function(n, r, p, R0D, R0A, k){
+  #outer function = pgf at s = 0
+  #n is the power (a+b)^n, a = p*(1+R0A/k)^(-k), b=(1-p)*(1+R0D/k)^(-k)
+  #r is the derivative required, r = 1, 2, ..., n-1
+  #pgf of neg binom at s=0 is (1+R0/k)^(-k)
+ fn<-(factorial(n)/factorial(n-r))*(p*(1+R0A/k)^(-k) +(1-p)*(1+R0D/k)^(-k))^(n-r)
+}
+
+
+nbinomchain<-function(j, R0, k){
+  #cluster size distribution for negative binomial model
+  #formula from Blumberg et al. 2013
+  #Arguments: j=chain size, R0=mean, k=dispersion
+  a<-R0/k
+  x<-j-1
+  y<-(a^x)/(1+a)^(k*j+x)
+  g<-gamma(k*j+x)/(gamma(k*j)*gamma(j+1))
+  return(g*y)
+}
+
+#prob cluster <=5
+#better to find from the other matrix first?
+#filter chains<=5
+nbinommixturechain<-function(nend, p, R0D,k, delta){
+  #generate cluster size distribution for a nbinom mixture, 
+  #clusters of size 1, 2, ...., nend
+  R0A<-R0D+delta
+csize3end<-numeric(nend-2)
+
+for(n in 3:nend){
+  #for loop to calculate chain sizes greater than 2
+nvec<-1:(n-1)
+# gvec<-gNGeo(nvec, p, R0D, R0A) #need n-1 g derivatives
+
+#compute the inner function 1, 2,..,n-1 derivatives of inner function 
+gvec<-numeric(length(nvec))
+for(i in 1:length(nvec)) gvec[i]<-gNNB(nvec[i],  p, R0D, R0A,k) #if statement so have to fill one by one
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+
+#use the derivatives to compute the  Bell polynomials vector of length n-1.
+
+#Faa Di Bruno's formula = sum of outer function * Bell polys of the inner function derivatives
+x1<-fNrNB(n, 1, p, R0D, R0A,k)*BellB(n-1,1,gvec) #r=1
+
+for(i in 2:(n-1)) x1<-x1+fNrNB(n, i, p, R0D, R0A,k)*BellB(n-1,i,head(gvec,-(i-1)))
+
+#vector of P(chain size = n)
+csize3end[n-2]<-x1/factorial(n)
+rm(x1)
+}
+#prob cluster size = 1 = Prob(cases=0)
+csize1<-(p)*(1+R0A/k)^(-k)+(1-p)*(1+R0D/k)^(-k)
+#prob cluster size = 2
+csize2<-fNrNB(2, 1, p, R0D, R0A,k)*gNNB(1,p,R0D, R0A,k)/2
+
+#chain size probabilities
+csizemix<-c(csize1, csize2, csize3end)
+return(csizemix)
+}
+
+ProbabilityChainSizeLessthanEqualC<-function(C, chainsizes){
+  #chainsizes is a column vector of chain sizes
+  #C =1, 2, ...,length(chainsizes)
+  prob<-sum(chainsizes[1:C])
+}
+
+
+NegBinmixturedeviate<- function(m, p, R0D, k, delta) {  
+  #Returns a vector of m Poisson mixture deviates
+  # Assumes a finite mixture of two Poisson distributions, with prob p and 1-p respectively, 0<p<1
+  #1 = success = direct contact
+  #0 = failure = aerosol
+  #rbinom = one bernoulli trial for direct transmission
+  #n = number of observations = 1
+  #size = number of trials =1 (bernoulli) per observation
+  #if success, deviate = rpois(R0D) otherwise aerosol
+  R0A<-R0D +delta
+  deviate<-numeric(m) #number of deviates
+  for(i in 1:m){
+deviate[i]<-ifelse(rbinom(1, size=1, prob = p)==1, rnbinom(1,mu=R0A, size=k), rnbinom(1,mu=R0D, size=k))
+  }
+  return(deviate)
+}
+
+NegBinmixturebranch<- function(n,p, R0D, k, delta) {
+  #Arguments:
+  #n = number of generations
+  #Returns number of cases per generation as a vector
+  #Uses Poissonmixturedeviate to generate random variates from mixture distribution
+  
+	z <- c(1,rep(0,n))#one infected case in generation 0 
+	for (i in 2:(n+1)) {
+z[i]<-ifelse(z[i-1]==0, 0, sum(NegBinmixturedeviate(z[i-1], p=p, R0D=R0D, k=k, delta=delta)))	  
+			}
+			return(z)
+			}
+
+NegBinbranch<- function(n,R0, k) {
+  #Arguments:
+  #n = number of generations
+  #Returns number of cases per generation as a vector
+  #Uses Poissonmixturedeviate to generate random variates from mixture distribution
+  
+	z <- c(1,rep(0,n))#one infected case in generation 0 
+	for (i in 2:(n+1)) {
+z[i]<-ifelse(z[i-1]==0, 0, sum(rnbinom(z[i-1],mu=R0,size=k)))	  
+			}
+			return(z)
+			}
+
+NegBinbranchw <- function(R0,k) {
+  #returns n = the number of generations that it takes to have a cluster greater than 50 from a Poisson mixture offspring distribution
+  
+  n<-1
+	z <- c(1,rep(0,n)) #n = number of generations after generation 0
+	#one infected case in generation 0
+	cluster<-sum(z)
+	while(cluster<50){
+	    i<-n+1
+			z[i] <- sum(rnbinom(z[i-1],mu=R0,size=k))
+			cluster<-cluster+z[i]
+      n<-n+1
+      if(z[i]==0){
+        break #break out of loop of cluster dies out
+      }
+			}
+			#return(c(z, cluster, n))
+if(cluster<50)
+	{n<-NA} #prob of extinction zinfinity predicts proportion of clusters that die out
+	return(n)
+			}
+
+		
+NegBinmixturebranchw<- function(p, R0D, k, delta) {  
+#returns n = the number of generations that it takes to have a cluster greater than 50 from a Poisson mixture offspring distribution
+R0A<-R0D+delta
+  n<-1 #generation time
+	z <- c(1,rep(0,n))
+	#one infected case in generation 0 
+	cluster<-sum(z)
+	while(cluster<50){
+	  #number of poisson rvs needed per case = z[i-1], then add together to get the number of new infections in that generation
+	    i<-n+1
+	    
+	z[i]<-ifelse(z[i-1]==0, 0, sum(NegBinmixturedeviate(z[i-1], p=p, R0D=R0D, k=k, delta=delta)))	 
+
+		cluster<-cluster+z[i]
+      n<-n+1
+      if(z[i]==0){
+        break #if no cases break out of while loop
+      }
+			}
+	#		return(c(z, cluster, n)) as a check
+	if(cluster<50)
+	{n<-NA}
+	return(n)
+			}
+
+```
+
+
+## Key questions
+
+\begin{itemize}
+\item Does the mechanistic addition of population structure induce qualitatively different outbreak patterns from a standard superspreading model? 
+\item How does decreasing the level of superspreading by a) changing the population structure e.g., by shifting the contact structure away from opportunistic encounters/aerosol transmission and towards regular contacts/direct contact transmission, and b) decreasing the average number of successful contacts in the superspreading cohort affect heterogeneity in outbreak patterns, and what are the implications for containment?
+
+\end{itemize}
+
+## Model Assumptions
+
+We assume that infected individuals can be divided into two disjoint groups - a fraction $p$ that contribute to transmission via superspreading, and the remaining fraction of the population $1-p$ that that do not contribute to superspreading transmission. In the superspreading cohort, the mean cumulative number of contacts leading to transmission of infection per infected individual per unit time is high at $\beta_1=\beta_D + \delta$, whereas in the non-superspreading group, it is low $\beta_2=\beta_D<\beta_1$. In both groups the contact process follows a Poisson distribution with mean $\beta_i$ $i,=1,2$. Then the contact process for the entire population is a finite Poisson mixture with random variates,
+\begin{equation}
+\text{number of cumulative contacts per infectious individual per unit time} \sim p 
+\text{Poisson} (\beta_1 ) + (1-p) \text{Poisson} (\beta_2).
+\end{equation}
+
+In both groups,we assume the infectious period is gamma distributed with mean $1/\gamma$ and coefficient of variation $1/\sqrt{k}$ with probability density function
+\begin{equation*}
+f(x) = \frac{(\gamma k)^k}{\Gamma(k)} x^{k-1}e^{-k \gamma x}
+\end{equation*}
+The gamma distribution is flexible in that allows for right-skewed distributions (i.e., $k<1$) and distributions with a central tendency ($k>1$), with $k=1$ leading to the exponential distribution.  The probability generating function for the mixture follows
+\begin{align}\label{eqn:nbinommix}
+h(s) &= \int_0^\infty \left (p e^{\beta_1 x (s-1)}+(1-p)e^{\beta_2 x (s-1)} \right) \frac{(\gamma k)^k}{\Gamma(k)} x^{k-1}e^{-k \gamma x} dx \notag \\
+&=p \frac{(\gamma k)^k}{(\gamma k+\beta_1(1-s))^k}+(1-p) \frac{(\gamma k)^k}{(\gamma k+\beta_2(1-s))^k} \notag \\
+&=  p \left (\frac{1 }{(1+\frac{\beta_1}{\gamma k}(1-s))} \right )^k+(1-p) \left (\frac{1 }{(1+\frac{\beta_2}{\gamma k}(1-s))} \right )^k \notag \\
+&=  \frac{p }{(1+\frac{R_0^A}{k}(1-s))^k}+  \frac{(1-p) }{(1+\frac{R_0^D}{k}(1-s))^k},
+\end{align}
+
+where $R_0^D=\beta_2/\gamma=\beta_D/\gamma$ and $R_0^A=\beta_1/\gamma=(\beta_D+\delta)/\gamma$. Therefore equation \eqref{eqn:nbinommix} shows that a finite mixture of negative binomial distributions models a combination of close contact transmission and superspreading. The number of secondary infections per generation is obtained from
+\begin{equation}
+\text{number of secondary infections} \sim p 
+\text{Negative Binomial} (R_0^A,k ) + (1-p) \text{Negative Binomial} (R_0^D, k).
+\end{equation}
+The mean number of secondary infections is $R_0 = p R_0^A + (1-p)R_0^D = R_0^D + p \delta$. 
+
+We compare the mixture model with a baseline negative binomial model with the same $R_0$ and dispersion parameter $k$.
+
+
+## Probability mass functions for baseline and mixture models
+
+Here we compare the probability mass functions of the mixture model ($R_0^D=1.1$, $p=0.1$, additional contacts $\delta =9$) with the base model for various values of $k$. The mean number of secondary infections for both models is $R_0 =2$. For the mixture models, the probability of no secondary infections is always greater than the negative binomial model with the same $R_0$ and $k$. As $k$ increases there is a greater central tendency in the number of secondary infections in the base model. 
+
+
+```{r}
+#parameters
+k<-c(1/2, 1, 2, 4)
+R0D<-1.1
+R0<-2
+p<-0.1
+delta<-(R0-R0D)/p
+R0A<-R0D+delta
+```
+
+```{r Figure2}
+nend<-10 #max chain size
+#base data is negative binomial model, R0=2, dispersion parameter = k
+basedata<-matrix(NA, nrow=11, ncol=4) #cols are variables, rows are observations
+for(i in 1:4) basedata[,i]<-dnbinom(0:10, size=k[i],mu=R0) #neg binom with R0=2
+#mix data is negative binomial mixture model, R0=2, R0D, p as above dispersion parameter = k
+mixdata<-matrix(NA, nrow=11, ncol=4)
+for(i in 1:4) mixdata[,i]<-p*dnbinom(0:10, size=k[i],mu=R0D+delta)+(1-p)*dnbinom(0:10, size=k[i],mu=R0D)
+
+#make a pmf data frame with columns = cases, proportions, dispersion parameters, model type
+mdatapmf<-data.frame(Cases=0:10, Proportion=mixdata[,1], k=rep(k[1],11), Model=rep("mixture",11), R0=rep(2,nend+1), Distribution = rep("pmf",nend+1))
+for(i in 2:4) mdatapmf<-bind_rows(mdatapmf,data.frame(Cases=0:10, Proportion=mixdata[,i], k=rep(k[i],11), Model=rep("mixture",11),R0=rep(2,nend+1), Distribution = rep("pmf",nend+1)))
+
+bdatapmf<-data.frame(Cases=0:10, Proportion=basedata[,1], k=rep(k[1],11), Model=rep("standard",11),R0=rep(2,nend+1), Distribution = rep("pmf",nend+1))
+for(i in 2:4) bdatapmf<-bind_rows(bdatapmf,data.frame(Cases=0:10, Proportion=basedata[,i], k=rep(k[i],11), Model=rep("standard",11),R0=rep(2,nend+1), Distribution = rep("pmf",nend+1)))
+
+pmf<-bind_rows(bdatapmf, mdatapmf)
+
+
+pmfplot<-
+ggplot(pmf)+
+  geom_bar(aes(x = Cases, y = Proportion, fill = Model), 
+           position = "dodge", stat = "identity", width=.3)+
+  scale_x_continuous(breaks=0:10)+
+  facet_wrap(~k, labeller=label_bquote(k == .(k)))+
+  xlab("Number of secondary infections N = j")+ylab("Probability P(N=j)")+
+  theme_minimal()+
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor=element_blank(), 
+        panel.border = element_rect(color = "darkgrey", fill = NA, size = 1))+
+  scale_fill_manual(values=c("#000000","#5798d1"))
+
+ggsave("pmfplot.pdf", pmfplot, height=9, width=14.5, units="cm") ##Figure 2
+pmfplot
+```
+
+
+
+
+Here we compare the chain size distributions of the mixture model ($R_0^D=1.1$, $p=0.1$, additional contacts $\delta =9$) with the base model for various values of $k$. The mean number of secondary infections for both models is $R_0 =2$. The chain size distribution is longer tailed for the mixture models compared to the corresponding base models.
+
+```{r}
+nend<-4 #power ie (a+b)^n #nend = number of clusters, 1,...nend
+csizemix<-matrix(NA, ncol=4, nrow=nend) # 4 cols for the 4 vals of k
+for(j in 1:4){
+  
+
+kval<-k[j]
+#generate the cluster distriubiton for the mixture distribution
+
+
+csize3end<-numeric(nend-2)
+
+for(n in 3:nend){
+  #for loop to calculate chain sizes greater than 2
+nvec<-1:(n-1)
+# gvec<-gNGeo(nvec, p, R0D, R0A) #need n-1 g derivatives
+
+#compute the inner function 1, 2,..,n-1 derivatives of inner function 
+#gvec = p1, 2p2, 6p3, ... (n-1)! p_(n-1)
+gvec<-numeric(length(nvec))
+for(i in 1:length(nvec)) gvec[i]<-gNNB(nvec[i],  p, R0D, R0A,kval) #if statement so have to fill one by one
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+
+#use the derivatives to compute the  Bell polynomials vector of length n-1.
+
+#Faa Di Bruno's formula = sum of outer function * Bell polys of the inner function derivatives
+#first derivative of outer * bell
+x1<-fNrNB(n, 1, p, R0D, R0A,kval)*BellB(n-1,1,gvec) #r=1
+
+for(i in 2:(n-1)) x1<-x1+fNrNB(n, i, p, R0D, R0A,kval)*BellB(n-1,i,head(gvec,-(i-1)))
+
+#vector of P(chain size = n)
+csize3end[n-2]<-x1/factorial(n)
+rm(x1)
+}
+#prob cluster size = 1 = Prob(cases=0)
+csize1<-(p)*(1+R0A/kval)^(-kval)+(1-p)*(1+R0D/kval)^(-kval)
+#prob cluster size = 2
+csize2<-fNrNB(2, 1, p, R0D, R0A,kval)*gNNB(1,p,R0D, R0A,kval)/2
+
+#chain size probabilities
+csizemix[,j]<-c(csize1, csize2, csize3end)
+
+}
+
+```
+
+```{r}
+nend<-20 #power ie (a+b)^n #nend = number of clusters, 1,...nend
+csizemix<-matrix(NA, ncol=4, nrow=nend) # 4 cols for the 4 vals of k
+for(j in 1:4){
+  
+
+kval<-k[j]
+#generate the cluster distriubiton for the mixture distribution
+
+
+csize3end<-numeric(nend-2)
+
+for(n in 3:nend){
+  #for loop to calculate chain sizes greater than 2
+nvec<-1:(n-1)
+# gvec<-gNGeo(nvec, p, R0D, R0A) #need n-1 g derivatives
+
+#compute the inner function 1, 2,..,n-1 derivatives of inner function 
+gvec<-numeric(length(nvec))
+for(i in 1:length(nvec)) gvec[i]<-gNNB(nvec[i],  p, R0D, R0A,kval) #if statement so have to fill one by one
+#The n-1th derivative of (a+b)^n evaluated at s = 0:
+
+#use the derivatives to compute the  Bell polynomials vector of length n-1.
+
+#Faa Di Bruno's formula = sum of outer function * Bell polys of the inner function derivatives
+x1<-fNrNB(n, 1, p, R0D, R0A,kval)*BellB(n-1,1,gvec) #r=1
+
+for(i in 2:(n-1)) x1<-x1+fNrNB(n, i, p, R0D, R0A,kval)*BellB(n-1,i,head(gvec,-(i-1)))
+
+#vector of P(chain size = n)
+csize3end[n-2]<-x1/factorial(n)
+rm(x1)
+}
+#prob cluster size = 1 = Prob(cases=0)
+csize1<-(p)*(1+R0A/kval)^(-kval)+(1-p)*(1+R0D/kval)^(-kval)
+#prob cluster size = 2
+csize2<-fNrNB(2, 1, p, R0D, R0A,kval)*gNNB(1,p,R0D, R0A,kval)/2
+
+#chain size probabilities
+csizemix[,j]<-c(csize1, csize2, csize3end)
+
+}
+```
+
+```{r}
+#Put into a data frame:
+#data frame of chain size distribution for mixtures
+clustermix<-data.frame(Chains=1:nend, Proportion=csizemix[,1], CumuProb= cumsum(csizemix[,1]), CompCumuProb=1-cumsum(csizemix[,1]), MajorOutbreak= rep(1-uniroot(NegBinomMixtureGen, c(0, 0.99),  p=p, R0D=R0D, k=k[1], delta=delta)$root, nend),k=rep(k[1],nend), Model=rep("mixture",nend), R0=rep(2,nend), Distribution = rep("chain",nend)) 
+for(i in 2:4) clustermix<-bind_rows(clustermix,data.frame(Chains=1:nend, Proportion=csizemix[,i], CumuProb= cumsum(csizemix[,i]), CompCumuProb=1-cumsum(csizemix[,i]), MajorOutbreak= rep(1-uniroot(NegBinomMixtureGen, c(0, 0.99),  p=p, R0D=R0D, k=k[i], delta=delta)$root, nend),k=rep(k[i],nend), Model=rep("mixture",nend), R0=rep(2,nend), Distribution = rep("chain",nend)))
+
+
+
+csizebase<-matrix(NA, nrow=nend, ncol=4)
+for(i in 1:4) csizebase[,i]<-nbinomchain(1:nend, R0, k[i])
+
+clusterbase<-data.frame(Chains=1:nend, Proportion=csizebase[,1], CumuProb= cumsum(csizebase[,1]), CompCumuProb=1-cumsum(csizebase[,1]), MajorOutbreak= rep(1-uniroot(NegBinomGen, c(0, 0.99),   R0=R0, k=k[1])$root, nend),k=rep(k[1],nend), Model=rep("standard",nend), R0=rep(2,nend), Distribution = rep("chain",nend)) 
+for(i in 2:4) clusterbase<-bind_rows(clusterbase,data.frame(Chains=1:nend, Proportion=csizebase[,i], CumuProb= cumsum(csizebase[,i]), CompCumuProb=1-cumsum(csizebase[,i]),MajorOutbreak= rep(1-uniroot(NegBinomGen, c(0, 0.99),   R0=R0, k=k[i])$root, nend),k=rep(k[i],nend), Model=rep("standard",nend), R0=rep(2,nend), Distribution = rep("chain",nend)))
+
+clusterdistrib<-bind_rows(clusterbase, clustermix)
+```
+
+
+```{r Figure3}
+#Plot shows that chain size distribution from a mixture is fatter tailed when $R_0>1$:
+
+pgfplot<-
+ggplot(clusterdistrib)+
+  geom_bar(aes(x = Chains, y = Proportion, fill = Model), 
+           position = "dodge", stat = "identity", width=.3)+
+  scale_x_continuous(breaks=1:10, limits = c(0,10))+
+  facet_wrap(~k, labeller=label_bquote(k == .(k)))+
+  xlab("Chain size Y=y") + ylab("Probability P(Y=y)")+
+  theme_minimal()+
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor=element_blank(), 
+        panel.border = element_rect(color = "darkgrey", fill = NA, size = 1))+
+  scale_fill_manual(values=c("#000000","#5798d1"))
+
+ggsave("pgfplot.pdf", pgfplot, height=9, width=14.5, units="cm") ###Figure 3
+pgfplot
+
+```
+
+## Complementary cumulative distribution function of chain sizes
+
+Recall that if $R_0>1$ the true probability distribution of chains is bimodal, in that it comprises small chains that go extinct and chains that grow exponentially into major epidemics. A branching process approximates the beginning of an outbreak, when depletion of susceptibles can be neglected. Therefore we cannot use a branching process to locate the mode corresponding to major epidemics, which cease to grow exponentially when the number of available susceptibles begins to decline. However, the area under the tail of the chain size distribution, i.e., its complementary cumulative distribution function, indicates the probability of observing a large transmission chain. We expect this to approach the probability of a major epidemic, $1-s^*$, as the number of chains included increases. Examining the tail of the chain size distribution offers an alternative means to study the difference between chain size distribution generated by the standard and mixture model, and how the dispersion parameter affects the chain size distribution. The figure below shows that the percentage of chains that make up the tail of the chain size distribution differs substantially between the base and mixture models, and the difference becomes more apparent as $k$ increases. Under the mixture model, minor outbreaks are more likely to be observed, and this feature is retained under values of $k>1$. For example, if $k=4$, observing a chain size of 6 or greater has similar chance to that of observing a major epidemic under the base model, but for the mixture model, there is a higher chance of observing a chain size of 6 or more than observing a major epidemic. We note that major epidemics have a 40\% chance of being observed under the mixture model, as opposed to the base model, which have a 70\% chance of being observed, a relative increase of 75\%. 
+
+
+
+```{r Figure4}
+#Plot shows that chain size distribution from a mixture is fatter tailed when $R_0>1$:
+
+probmajoroutbreak <- clusterdistrib %>% 
+  group_by(k,Model) %>% 
+  summarise(ProbMajorOutbreak = max(MajorOutbreak))
+
+CompCumuDistplot<-
+ggplot(clusterdistrib)+
+  geom_bar(aes(x = Chains, y = CompCumuProb, fill = Model), 
+           position = "dodge", stat = "identity", width=.5)+
+  geom_segment(aes(y = ProbMajorOutbreak, yend = ProbMajorOutbreak, colour = Model),
+               data=probmajoroutbreak,
+               x = 0, xend = 21, size=.3)+
+  geom_text(aes(y = ProbMajorOutbreak, 
+                colour = Model,
+                label = round(ProbMajorOutbreak,3)
+                ), 
+            data = probmajoroutbreak, 
+            x = 21, size = 2, hjust = 0)+
+  scale_x_continuous(breaks=seq(0, 20, 5), 
+                     minor_breaks = 1:20,
+                     limits = c(0,23))+
+  facet_wrap(~k, labeller=label_bquote(k == .(k)))+
+  xlab("Chain size y") + ylab("Proportion of chains > y")+
+  theme_minimal()+
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(), 
+        panel.border = element_rect(color = "darkgrey", fill = NA, size = 1))+
+  scale_fill_manual(values=c("#000000","#5798d1"))+
+  scale_colour_manual(values=c("#000000","#5798d1"))
+
+ggsave("compcdfplot.pdf", CompCumuDistplot, height=9, width=14.5, units="cm") ###Figure 4
+CompCumuDistplot
+
+```
+
+## Statistics that show hallmarks of transmission heterogeneity
+
+Hallmarks of heterogeneous transmission include:
+
+\begin{itemize}
+\item Greater variability in the number of secondary infections (long tailed)
+\item Smaller probability of major epidemics
+\item Greater variability in chain sizes
+\item Larger probability of observing no secondary infections and of observing small chains that go extinct
+\end{itemize}
+
+Here we study the coefficient of variation of the number of secondary infections, the probability of a major outbreak, the probability of observing a small transmission chain of less than or equal to 10 cases, and the mean and coefficient of variation of small chain sizes (conditioned on extinction). 
+
+In each of the following, $p$ and $\delta$ are varied but $R_0 = R_0^D + p \delta$ is fixed at $R_0 =2$. The following figures show that smaller values of $p$ (and larger values of $\delta$) lead to more heterogeneous epidemics, even if the dispersion parameter $k>1$. 
+
+## Numerical studies (assuming $R_0$ > 1)
+
+
+
+Outbreaks that have hallmarks of superspreading include high variability in the number of secondary infections per infected individual, small probability of major epidemics, high variability in transmission chain sizes, high probability of observing no secondary infections per infected individual and high probability of observing small transmission chains. To compare variability in the number of secondary infections per infected individual in the standard negative binomial model and finite mixture negative binomial model, we computed the coefficient of variation of seceondary infections. To compare variability in transmission chain sizes in the standard negative binomial model and finite mixture negative binomial model, we computed the mean and coefficient of variation of chain sizes. To compare probabilities of observing small transmission chains in the standard negative binomial model and finite mixture negative binomial model, we used the chain size distributions to compute the probability of observing a chain consisting of less than or equal to 10 cases.  To compare probabilities of a major epidemic, we used the probability generating functions to compute the probability of extinction numerically.
+
+
+  
+
+```{r}
+#parameters
+k<-c(1/2, 1, 2, 4)
+R0D<-1.1
+R0<-2
+p<-seq(0.01, 1,0.01)
+delta<-(R0-R0D)/p
+R0A<-R0D+delta
+```
+
+
+```{r}
+#Calculate mixture statistics:
+nstat<-6
+  mixstat<-array(NA, dim=c(length(k), length(p), nstat))
+  for(j in 1:length(k)){
+    kval<-k[j]
+for(i in 1:length(p)){
+  mixstat[j,i,1]<-varNegBinommixtureoffspring(p[i], R0D, kval, delta[i]) #variance of cases
+  mixstat[j,i,2]<-uniroot(NegBinomMixtureGen, c(0, 0.99),  p=p[i], R0D=R0D, k=kval, delta=delta[i])$root #extinction probability
+  mixstat[j,i,3]<-NegBinomMixR0star(p[i], R0D, kval, delta[i])#R0* needed for mean chain size
+  mixstat[j,i,4]<-variance.chainNegBinomMix(p[i], R0D, kval, delta[i]) #chain variance conditioned on extinction
+  mixstat[j,i,5]<-ProbabilityChainSizeLessthanEqualC(C=10, nbinommixturechain(nend=10, p=p[i], R0D=R0D,k=kval, delta=delta[i])) #prob of observing cluster size <=10 (measure of stochastic burnout)
+  mixstat[j,i,6]<-NegBinomMixProbZero(p=p[i], R0D=R0D,k=kval, delta=delta[i]) #prob of no secondary infections
+}  
+  }
+
+  #could include delta in the frame
+#change 4 by pval by nstat array into  (4*pval) by nstat matrix/data frame
+mstatdata <- data.frame(model="mixture", 
+                        R0=rep(R0, length(p)), 
+                        R0D=rep(R0D , length(p)),
+                        p=p,
+                        delta=delta, 
+                        k=rep(k[1], length(p)), 
+                        CaseVariance=mixstat[1,,1],
+                        ExtinctionProbability=mixstat[1,,2],
+                        R0star=mixstat[1,,3],
+                        ChainVariance=mixstat[1,,4],
+                        ProbabilityChainSizeLessEqual10=mixstat[1,,5], 
+                        ProbChainSize1=mixstat[1,,6])
+#stack each data frame corresponding to each k value below each other
+for(i in 2:4) mstatdata<-bind_rows(mstatdata, data.frame(model="mixture", R0=rep(R0, length(p)), R0D=rep(R0D , length(p)),p=p, delta=delta,k=rep(k[i], length(p)), CaseVariance=mixstat[i,,1], ExtinctionProbability=mixstat[i,,2],R0star=mixstat[i,,3],ChainVariance=mixstat[i,,4],ProbabilityChainSizeLessEqual10=mixstat[i,,5],ProbChainSize1=mixstat[i,,6]))
+
+#add CV cases, major outbreak probability, chain mean, CV chain
+mstatdata<-mutate(mstatdata, CVCases=sqrt(CaseVariance)/R0, MajorOutbreak = 1-ExtinctionProbability, MeanChain = 1/(1-R0star),  CVChain=sqrt(ChainVariance)/MeanChain)
+```
+
+
+
+```{r}
+#Calculate base statistics:
+nstat<-6
+  basestat<-matrix(NA, nrow=length(k), ncol=nstat)
+  for(j in 1:length(k)){
+    kval<-k[j]
+
+  basestat[j,1]<-varNegBinomoffspring(R0, kval) #variance of cases
+  basestat[j,2]<-uniroot(NegBinomGen, c(0, 0.99),   R0=R0, k=kval)$root #extinction probability
+  basestat[j,3]<-NegBinomR0star(R0=R0, k=kval)#R0* needed for mean chain size
+  basestat[j,4]<-variance.chainNegBinom(R0=R0, k=kval) #chain variance conditioned on extinction
+  basestat[j,5]<-ProbabilityChainSizeLessthanEqualC(C=10, nbinomchain(1:10, R0, kval))
+  basestat[j,6]<-NegBinomProbZero(R0=R0, k=kval) #Prob chain size of 1
+  }
+
+# each stat repeated times so for every value of p, there is a corresponding base statistic
+bstatdata<-data.frame(model="standard", R0=rep(R0, length(p)), R0D=rep(R0D , length(p)),p=p,delta=delta, k=rep(k[1], length(p)), CaseVariance=rep(basestat[1,1],length(p)), ExtinctionProbability=rep(basestat[1,2],length(p)),R0star=rep(basestat[1,3],length(p)),ChainVariance=rep(basestat[1,4],length(p)), ProbabilityChainSizeLessEqual10=rep(basestat[1,5],length(p)), ProbChainSize1=rep(basestat[1,6],length(p)))
+#put each data frame corresponding to each k value on top of each other
+for(i in 2:4) bstatdata<-bind_rows(bstatdata, data.frame(model="standard", R0=rep(R0, length(p)), R0D=rep(R0D , length(p)),p=p, delta=delta,k=rep(k[i], length(p)), CaseVariance=rep(basestat[i,1],length(p)), ExtinctionProbability=rep(basestat[i,2],length(p)),R0star=rep(basestat[i,3],length(p)),ChainVariance=rep(basestat[i,4],length(p)), ProbabilityChainSizeLessEqual10=rep(basestat[i,5],length(p)), ProbChainSize1=rep(basestat[i,6],length(p))))
+
+#add CV cases, major outbreak probability, chain mean, CV chain
+bstatdata<-mutate(bstatdata,CVCases=sqrt(CaseVariance)/R0, MajorOutbreak = 1-ExtinctionProbability, MeanChain = 1/(1-R0star),  CVChain=sqrt(ChainVariance)/MeanChain)
+```
+
+```{r}
+statdata<-bind_rows(bstatdata, mstatdata) %>% 
+  rename(Model=model)
+```
+
+
+## Probability chain size of 1
+
+```{r}
+probzerosecondplot<-
+ggplot(statdata)+
+  geom_line(aes(x = p, y = ProbChainSize1, colour=Model), size=1)+
+  facet_wrap(~k, labeller=label_bquote(k == .(k)))+
+  ylab("Probability of zero secondary infections")+
+  xlab("Proportion superspreaders p")+
+  theme_minimal()+
+  theme(panel.border = element_rect(color = "darkgrey", fill = NA, size = 1))+
+  scale_colour_manual(values=c("#000000","#5798d1"))
+ggsave("probzerosecondplot.pdf", probzerosecondplot, height=4, width=5)
+probzerosecondplot
+```
+
+## CV offspring distribution
+
+
+
+```{r}
+CVcaseplot<-
+ggplot(statdata)+
+  geom_line(aes(x = p, y = CVCases, colour=Model), size=1)+
+  facet_wrap(~k, labeller=label_bquote(k == .(k)))+
+  ylab("Coefficient of variation of secondary infections")+
+  xlab("Proportion superspreaders p")+
+  theme_minimal()+
+  theme(panel.border = element_rect(color = "darkgrey", fill = NA, size = 1))+
+  scale_colour_manual(values=c("#000000","#5798d1"))
+ggsave("CVcaseplot.pdf", CVcaseplot, height=9, width=14.5, units="cm")
+CVcaseplot
+```
+\textbf{Figure.} Coefficient of variation of secondary infections in the mixture model is highest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The coefficient of variation of secondary infections in the mixture model decreases as $p$ increases and approaches the value of the standard model as $p$ approaches 1. There is greater variability in the number of secondary infections in the mixture model compared to the base model, even if $k>1$, with the highest variability for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
+
+## Probability of major outbreak
+
+```{r}
+majoroutbreakplot<-
+ggplot(statdata)+
+  geom_line(aes(x = p, y = MajorOutbreak, colour=Model), size=1)+
+  facet_wrap(~k, labeller=label_bquote(k == .(k)))+
+  ylab("Probability of major outbreak")+
+  xlab("Proportion superspreaders p")+
+  theme_minimal()+
+  theme(panel.border = element_rect(color = "darkgrey", fill = NA, size = 1))+
+  scale_colour_manual(values=c("#000000","#5798d1"))
+ggsave("majoroutbreakplot.pdf", majoroutbreakplot, height=9, width=14.5, units="cm")
+majoroutbreakplot
+```
+\textbf{Figure.}Probability of a major outbreak in the mixture model is lowest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The probability of a major outbreak in the mixture model increases as $p$ increases and approaches the value of the standard model as $p$ approaches 1. There is smaller probability of major epidemics in the mixture model compared to the base model, even if $k>1$, with the lowest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
+
+## Probability of observing a transmission chain of size $\leq$ 10
+
+ 
+
+```{r}
+minoroutbreakplot <- 
+  ggplot(statdata)+
+  geom_line(aes(x = p, y = ProbabilityChainSizeLessEqual10, colour=Model), size=1)+
+  facet_wrap(~k, labeller=label_bquote(k == .(k)))+
+  ylab("Probability of minor outbreak\n(less than or equal to 10 cases)")+
+  xlab("Proportion superspreaders p")+
+  theme_minimal()+
+  theme(panel.border = element_rect(color = "darkgrey", fill = NA, size = 1))+
+  scale_colour_manual(values=c("#000000","#5798d1"))
+ggsave("minoroutbreakplot.pdf", minoroutbreakplot, height=9, width=14.5, units="cm")
+minoroutbreakplot
+```
+\textbf{Figure.} Probability of observing a transmission chain of size $\leq$ 10 in the mixture model is highest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The probability decreases as $p$ increases and approaches the value of the standard model as $p$ approaches 1. There is larger probability of observing small chains that go extinct in the mixture model compared to the base model, with the highest probabilities for small dispersion parameter $k$, small $p$ and large number of additional contacts.
+
+## Mean chain size
+
+Fatter tail in the chain size distribution conditioned on extinction (i.e. restricting to small transmission chains that go extinct) will make the mean chain size conditioned on extinction larger. Perhaps not a true hallmark of superspreading but it is indicative of fatter tailed chain size distributions.
+
+```{r}
+meanchainplot<-
+ggplot(statdata)+
+  geom_line(aes(x = p, y = MeanChain, colour=Model), size=1)+
+  facet_wrap(~k, labeller=label_bquote(k == .(k)))+
+  ylab("Mean chain size")+
+  xlab("Proportion superspreaders p")+
+  theme_minimal()+
+  theme(panel.border = element_rect(color = "darkgrey", fill = NA, size = 1))+
+  scale_colour_manual(values=c("#000000","#5798d1"))
+ggsave("meanchainplot.pdf", meanchainplot, height=9, width=14.5, units="cm")
+meanchainplot
+```
+\textbf{Figure.}  Mean chain sizes are largest for large dispersion parameter $k$, small $p$ and large number of additional contacts. Mean chain sizes decrease as $p$ increases and approaches the value of the standard model as $p$ approaches 1. Mean chain sizes are larger in mixture models compared to the base model, even if $k>1$.
+
+## CV chain size
+
+
+```{r}
+CVchainplot<-
+ggplot(statdata)+
+  geom_line(aes(x = p, y = CVChain, colour=Model), size=1)+
+  facet_wrap(~k, labeller=label_bquote(k == .(k)))+
+  ylab("Coefficient of variation of chain size")+
+  xlab("Proportion superspreaders p")+
+  theme_minimal()+
+  theme(panel.border = element_rect(color = "darkgrey", fill = NA, size = 1))+
+  scale_colour_manual(values=c("#000000","#5798d1"))
+ggsave("CVchainplot.pdf", CVchainplot, height=9, width=14.5, units="cm")
+CVchainplot
+```
+\textbf{Figure X.} Coefficient of variation of transmission chain sizes in the mixture model is highest for small dispersion parameter $k$, small $p$ and large number of additional contacts. The coefficient of variation of small chains that go extinct in the mixture model decreases as $p$ increases and approaches the value of the standard model as $p$ approaches 1.There is greater variability in chain sizes in the mixture model compared to the base model, even if $k>1$, with the highest coefficients of variation observed for small dispersion parameter $k$, small $p$ and large number of additional contacts. 
+
+## Table 2 
+
+Table 2 in text:
+```{r}
+stattab<-filter(statdata, p=="0.1")%>%select(Model, R0, R0D, p, delta, k, CaseVariance, ProbChainSize1, CVCases, MajorOutbreak, MeanChain, CVChain)
+#write_csv(stattab, file="stats.csv")
+```
+
+
+Key statistics generated by base model with $k=2$ and mixture model with 10\% superspreaders (row of Table 2 in text)
+```{r}
+filter(statdata, p=="0.1" & k=="2")
+```
+
+
+```{r}
+filter(statdata, p=="0.1" & k=="2" & Model=="mixture")%>%select(Model, R0, R0D, p, delta, k, CaseVariance, CVCases, ProbChainSize1,MajorOutbreak, MeanChain, CVChain)
+```
+
+Percentage change in key statistics generated by mixture model with 10\% superspreaders relative to base model, $k=2$:
+```{r}
+df<-select(filter(statdata, p=="0.1" & k=="2"), ProbChainSize1, CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+(diff(as.matrix(df))*100)/df[1,]
+```
+For example, mean chain sizes conditioned by extinction under a mixture model with 10\% of individuals belonging to the superspreader cohort and dispersion parameter of 2 are expected to be 38\% larger than the corresponding base model, and there is 41\% reduction in the probability of a major outbreak compared to the base model. 
+
+```{r}
+filmixstatsk05<-select(filter(statdata, Model=="mixture",k=="0.5"), ProbChainSize1,CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+stanstatsk05<-select(filter(statdata, Model=="standard",k=="0.5"), ProbChainSize1,CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+filmixstatsk1<-select(filter(statdata, Model=="mixture",k=="1"), ProbChainSize1,CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+stanstatsk1<-select(filter(statdata, Model=="standard",k=="1"), ProbChainSize1,CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+filmixstatsk2<-select(filter(statdata, Model=="mixture",k=="2"), ProbChainSize1,CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+stanstatsk2<-select(filter(statdata, Model=="standard",k=="2"), ProbChainSize1,CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+filmixstatsk4<-select(filter(statdata, Model=="mixture",k=="4"), ProbChainSize1,CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+stanstatsk4<-select(filter(statdata, Model=="standard",k=="4"), ProbChainSize1,CaseVariance, ExtinctionProbability, ProbabilityChainSizeLessEqual10, CVCases, MajorOutbreak, MeanChain, CVChain)
+
+percentchangek05<-(filmixstatsk05-stanstatsk05)*100/stanstatsk05
+percentchangek1<-(filmixstatsk1-stanstatsk1)*100/stanstatsk1
+percentchangek2<-(filmixstatsk2-stanstatsk2)*100/stanstatsk2
+percentchangek4<-(filmixstatsk4-stanstatsk4)*100/stanstatsk4
+
+```
+
+
+## Control activities
+
+Here we will study the effect of three ways of reducing $R_0$:
+\begin{itemize}
+\item[(a)] decreasing the proportion $p$ of individuals in the population with high contact rate , which may
+be considered to be the same as increasing the proportion of the population that self-isolate when sick or comply with
+stay-at-home orders/physical distancing, comply with face covering mandates or other measures that reduce the chance of transmission;
+\item [(b)] decreasing the number of additional contacts per individual in the superspreading cohort 
+\item [(c)] decreasing baseline transmission rate in both groups by reducing $R_0^D$, e.g., both groups wear face coverings. 
+\end{itemize}
+
+We firstly study the effect of targeted control activities on the superspreading cohort. Control effort is denoted by $c$, $0\leq c\leq 1$ where $c=0$ implies the application of no control effort and $c=1$ indicates full control of superspreading transmission. We firstly alter population structure by reducing $p$ (thereby increasing $1-p$) by a factor $1-c$ while keeping all other parameters fixed. Secondly, we reduce the individual reproduction number by decreasing the number of additional contacts $\delta$ by a factor $1-c$ while keeping all other parameters fixed..  Both strategies lead the same effective $R_0$,
+\begin{equation}\label{eqn:effectiveR0S}
+R_{0e}^{S} = R_0^D + (1-c) p \delta.
+\end{equation}
+When $c=1$, effective $R_0$ is the same as $R_0^d$, the basic reproduction number of the pathogen in the regular transmission cohort. If $R_0 > 1$, the threshold control effort for elimination when control is limited to the superspreading cohort is 
+\begin{equation}\label{eqn:thresholdS}
+c^{S} = 1 -\frac{ (1-R_0^D)}{p \delta}    = \frac{R_0-1}{p \delta} =\frac{R_0-1}{R_0-R_0^D}, \quad 0< c^{S} \leq 1
+\end{equation}
+and therefore the pathogen can only be eliminated in the entire population if $R_0^D < 1$, i.e., the regular cohort cannot sustain the infection alone. 
+
+
+We can also study the effect of mitigation measures on both cohorts, by reducing $R_0^D$ by a factor $1-c$. This leads to a different effective $R_0$,
+\begin{equation}\label{eqn:effectiveR0SR}
+R_{0e}^{SR} = (1-c) R_0^D + p \delta, 
+\end{equation}
+and different expression for threshold control effort,
+\begin{equation}\label{eqn:thresholdSR}
+c^{SR} = 1 -\frac{ (1-p \delta)}{R_0^D} = \frac{R_0-1}{R_0^D}, \quad 0 < c^{SR} \leq 1.
+\end{equation}
+In this case, if $c=1$, then $R_{0e}^{SR} = p \delta$, and elimination of the disease in the entire population can only be achieved provided $p \delta = R_0 - R_D < 1$, i.e., the superspreading cohort cannot have too many additional contacts, or the proportion of superspreaders cannot be too large. Equation \ref{eqn:thresholdS} and  equation \ref{eqn:thresholdSR} are equal if and only if $R_0 = 2 R_0^D$, or equivalently $R_0^D = p \delta$. If $R_0< 2 R_0^D$ (i.e., $p\delta <R_0^D$) then $c^{SR}<c^{S}$ and targeting control activities towards both groups leads to a lower threshold for elimination. On the other hand, if $R_0>2R_0^D$ (i.e., $p \delta > R_0^D$) then $c^{S}< c^{SR}$ and targeting control activities towards the superspreading cohort only induces more efficient elimination.
+
+Comparing the effective $R_0$s, if $p \delta < R_0^D$ (i.e., superspreaders contribute little to $R_0$), control activities that target both groups is a more effective strategy than targeting superspreaders alone since $R_{0e}^{SC} < R_{0e}^{S}$.   On the other hand, if $p\delta > R_0^D$, $R_{0e}^{S} < R_{0e}^{SC}$ and so targeting superspreading reduces $R_0$ more than targeting both groups with control. 
+
+To study how control activities impact heterogeneity in outbreaks, we examine the variance to mean ratio of the number of secondary infections. We expect that if control efforts focus on actions that reduce $p$ or $\delta$, heteroegeneity in outbreaks should decline with the level of control effort because the sources of heterogeneity and superspreading are being targeted. On the other hand, if both groups are subject to control activity with regular transmission $R_0^D$ being targeted (and therefore $R_0^A=R_0^D + \delta$ also targeted), the influence of superspreaders may dominate outbreak patterns.
+
+Examining the variance to mean ratio at maximum control effort $c=1$ under each control activity, if superspreading only is targeted, the variance to mean ratio is $1+R_0^D/k$ whereas if both groups are targeted, it is $1+\delta/k + \delta(1-p)$. Clearly if $\delta > R_0^D$ then the variance to mean ratio for control applied to both groups is larger than that for superspreading only, whereas if $\delta$ is very small, the variance to mean ratio for both group control is close to one. 
+
+To answer the question of how control activity affects heterogeneity in outbreak patterns as epidemic control $c$ is applied, we would like the threshold for extinction to be the same for both activities. We start with $R_0^D = 0.9 <1$, which guarantees extinction for targeted control because the threshold will be less than one. We choose $R_0 = 2 R_0^D = 1.8$, which means that $p \delta = 0.9 <1$, so extinction will be guaranteed if control to both groups is applied. We choose $p = 0.1$ and $\delta = 9$. In this scenario, effective $R_0$ (equations \ref{eqn:effectiveR0S} and \ref{eqn:effectiveR0SR}) is the same for all three strategies. Then we decrease each of $R_0^D$, $p$ and $\delta$ by a factor $1-c$ in increments of 0.01 and examine their effect on the variance to mean ratio of secondary infections and the probability of extinction.
+
+
+
+
+
+```{r}
+# baseline parameters before control
+control<-seq(0.01,1,0.01)
+R0Dval<-0.9
+R0<-1.8
+pval<-0.1
+deltaval<-(R0-R0Dval)/pval
+R0A<-R0Dval+deltaval
+kval<-1/2
+```
+
+```{r}
+#Calculate mixture statistics:
+nstat<-2
+mixstatdel<-matrix(NA, nrow=length(control), ncol=nstat)
+
+for(i in 1:length(control)){
+  mixstatdel[i,1]<-varNegBinommixtureoffspring(pval, R0Dval, kval, (1-control[i])*deltaval) #variance of cases
+  mixstatdel[i,2]<-tryCatch(uniroot(NegBinomMixtureGen, c(0, 0.9999),  p=pval, R0D=R0Dval, k=kval, delta=(1-control[i])*deltaval)$root, error=function(e) return(uniroot(NegBinomMixtureGen, c(0, 1),  p=pval, R0D=R0Dval, k=kval, delta=(1-control[i])*deltaval)$root))#extinction probability
+    #uniroot(NegBinomMixtureGen, c(0, 1),  p=pval, R0D=R0Dval, k=kval, delta=(1-control[i])*deltaval)$root #extinction probability
+} 
+
+mixstatp<-matrix(NA, nrow=length(control), ncol=nstat)
+
+for(i in 1:length(control)){
+  mixstatp[i,1]<-varNegBinommixtureoffspring((1-control[i])*pval, R0Dval, kval, deltaval) #variance of cases
+  mixstatp[i,2]<- tryCatch(uniroot(NegBinomMixtureGen, c(0, 0.9999),  p=(1-control[i])*pval, R0D=R0Dval, k=kval, delta=deltaval)$root, error=function(e) return(uniroot(NegBinomMixtureGen, c(0, 1),  p=(1-control[i])*pval, R0D=R0Dval, k=kval, delta=deltaval)$root))#extinction probability
+  #uniroot(NegBinomMixtureGen, c(0, 1),  p=(1-control[i])*pval, R0D=R0Dval, k=kval, delta=deltaval, extendInt = "yes")$root
+}  
+
+mixstatR0D<-matrix(NA, nrow=length(control), ncol=nstat)
+
+for(i in 1:length(control)){
+  mixstatR0D[i,1]<-varNegBinommixtureoffspring(pval, (1-control[i])*R0Dval, kval, deltaval) #variance of cases
+  mixstatR0D[i,2]<-tryCatch(uniroot(NegBinomMixtureGen, c(0, 0.9999),  p=pval, R0D=(1-control[i])*R0Dval, k=kval, delta=deltaval)$root, error=function(e) return(uniroot(NegBinomMixtureGen, c(0, 1),  p=pval, R0D=(1-control[i])*R0Dval, k=kval, delta=deltaval)$root))#extinction probability #if c>c*, then probability = 1. Need to change uniroot to (0,0.99) #could make two separate vectors c<c* and c>=c* applying uniroot on each of the intervals
+ #tryCatch(uniroot(NegBinomMixtureGen, c(0, 0.99),  p=(1-0.9)*pval, R0D=R0Dval, k=kval, delta=deltaval)$root, error=function(e) return(uniroot(NegBinomMixtureGen, c(0, 1),  p=(1-0.9)*pval, R0D=R0Dval, k=kval, delta=deltaval)$root))
+  #uniroot(NegBinomMixtureGen, c(0, 1),  p=pval, R0D=(1-control[i])*R0Dval, k=kval, delta=deltaval)$root
+}  
+
+cpstatdata<-data.frame(Model="Control on superspreading proportion", Control=control, CaseVariance=mixstatp[,1], ExtinctionProbability=mixstatp[,2])
+cpstatdata<-mutate(cpstatdata, MajorOutbreak = 1-ExtinctionProbability, R0D=rep(R0Dval, length(control)), p=(1-control)*pval, delta=rep(deltaval, length(control)), EffectiveR0=R0Dval + p*deltaval,VarMeanRatio=CaseVariance/EffectiveR0, CVCases=sqrt(CaseVariance)/EffectiveR0)
+
+cdeltastatdata<-data.frame(Model="Control on additional contacts",Control=control, CaseVariance=mixstatdel[,1], ExtinctionProbability=mixstatdel[,2])
+cdeltastatdata<-mutate(cdeltastatdata, MajorOutbreak = 1-ExtinctionProbability,R0D=rep(R0Dval, length(control)), p=rep(pval, length(control)), delta=(1-control)*deltaval, EffectiveR0=R0Dval + pval*delta,VarMeanRatio=CaseVariance/EffectiveR0, CVCases=sqrt(CaseVariance)/EffectiveR0)
+
+cR0Dstatdata<-data.frame(Model="Control on both groups",Control=control, CaseVariance=mixstatR0D[,1], ExtinctionProbability=mixstatR0D[,2])
+cR0Dstatdata<-mutate(cR0Dstatdata, MajorOutbreak = 1-ExtinctionProbability, R0D=(1-control)*R0Dval, p=rep(pval, length(control)), delta=rep(deltaval, length(control)), EffectiveR0=R0D + pval*deltaval,VarMeanRatio=CaseVariance/EffectiveR0, CVCases=sqrt(CaseVariance)/EffectiveR0)
+                   
+controlstat<-bind_rows(cpstatdata, cdeltastatdata, cR0Dstatdata)   
+mjstart<-1-uniroot(NegBinomMixtureGen, c(0, 0.9999),  p=pval, R0D=R0Dval, k=kval, delta=(1-0)*deltaval)$root
+controlstat<-mutate(controlstat, MajorOutbreakPercentageChange=(MajorOutbreak-mjstart)*100/mjstart)
+```
+
+
+Here we show that control strategies have different impacts on probability of extinction and variance to mean ratio as a function of control effort even when the threshold for extinction is the same for all three strategies ($c^S = c^{SR} = 8/9$). Control actions that act on both groups lead to greater heterogeneity in outbreaks (i.e., higher variance to mean ratio and coefficient of variation in secondary infections) than control measures that act on superspreaders only (e.g., reducing the number of additional contacts $\delta$ and reducing the proportion of superspreaders $p$). 
+
+```{r}
+# ggplot(controlstat)+
+#    geom_point(aes(x = Control, y = CVCases, colour=Model))+
+#   geom_line(aes(x = Control, y = CVCases, colour=Model))
+```
+```{r}
+controlstat2 <- controlstat %>% 
+  mutate(across('Model', 
+                str_replace, 
+                'Control on both groups', 
+                'both groups')) %>%
+  mutate(across('Model', 
+                str_replace, 
+                'Control on superspreading proportion', 
+                'superspreading proportion')) %>%
+  mutate(across('Model', 
+                str_replace, 
+                'Control on additional contacts', 
+                'additional contacts')) %>%
+  rename(ControlLevel = Control,
+         Control = Model) %>% 
+  mutate(Control = factor(Control, 
+                        levels = c("both groups", 
+                                   "superspreading proportion", 
+                                   "additional contacts")))
+```
+
+
+```{r}
+extplot<-
+ggplot(controlstat2)+
+  geom_line(aes(x = ControlLevel, y = ExtinctionProbability, colour=Control, linetype = Control),
+            size = 1, alpha=1,
+            show.legend = FALSE)+
+  ylab("Extinction Probability")+
+  xlab("Control level c")+
+  theme_minimal()+
+  theme(panel.border = element_rect(color = "darkgrey", fill = NA, size = 1),
+        plot.margin = margin(l = 24, unit = "pt"))+
+  scale_colour_manual(values=c("#000000","#226e83","#e2908c"))  
+```
+
+
+```{r}
+varmeanplot<-
+ggplot(controlstat2)+
+  geom_line(aes(x = ControlLevel, y = VarMeanRatio, colour=Control, linetype = Control), 
+            size = 1, alpha=1)+
+  ylab("Variance to \nmean ratio")+
+  xlab("Control level c")+
+  theme_minimal()+
+  theme(panel.border = element_rect(color = "darkgrey", fill = NA, size = 1),
+        legend.justification=c(0,1),
+        legend.position="top",
+        legend.key.width= unit(.4, 'in'),
+        plot.margin = margin(l = 24, unit = "pt")
+        )+
+  scale_colour_manual(values=c("#000000","#226e83","#e2908c"))
+```
+
+```{r}
+# ggplot(controlstat)+
+#   geom_point(aes(x = Control, y = MajorOutbreak, colour=Model))+
+#   geom_line(aes(x = Control, y = MajorOutbreak, colour=Model))+
+#   ylab("Probability of major outbreak ")+xlab("Control level c")
+```
+
+
+```{r}
+changeplot<-
+  ggplot(controlstat2)+
+  geom_line(aes(x = ControlLevel, y = MajorOutbreakPercentageChange, 
+                colour=Control, linetype = Control), 
+            size = 1, alpha=1,
+            show.legend = FALSE)+
+  ylab("Percentage change\nin probability of\nmajor outbreak")+
+  xlab("Control level c")+
+  theme_minimal()+
+  theme(#panel.grid.minor=element_blank(), 
+        panel.border = element_rect(color = "darkgrey", fill = NA, size = 1),
+        plot.margin = margin(l = 24, unit = "pt")
+        )+
+  scale_colour_manual(values=c("#000000","#226e83","#e2908c"))
+```
+
+```{r Figure5}
+library(egg)
+controlplot <- ggarrange(varmeanplot +
+            theme(axis.title.x=element_blank(),
+                  axis.text.x=element_blank(),
+                  axis.ticks.x=element_blank(),
+                  plot.margin = margin(b = 1),
+                  axis.title.y = element_text(size=10),
+                  legend.text=element_text(size=6.5)
+                  ), 
+          extplot+
+            theme(axis.title.x=element_blank(),
+                  axis.text.x=element_blank(),
+                  axis.ticks.x=element_blank(),
+                  plot.margin = margin(b = 1),
+                  axis.title.y = element_text(size=10)
+                  ), 
+          changeplot+
+            theme(axis.title.y = element_text(size=10)), 
+          nrow = 3, ncol = 1,
+          labels = c('a','b','c')
+          )
+ggsave("controlplot.pdf", controlplot, height=13, width=14.5, units="cm")###Figure 5
+```
+
