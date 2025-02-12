@@ -116,15 +116,14 @@ fig_1c <- dat %>%
     scale_color_manual(values = c("#e2908c", "darkgrey"), labels = c("mixture", "standard")) +
     expand_limits(y = ymax) +
     xlab(expression(paste("Fraction of poulation ", italic("p"), " belonging to high contact group"))) +
-    guides(color = guide_legend(position = "inside",title = NULL, byrow=TRUE)) +
+    guides(color = guide_legend(position = "inside",title = "variance", byrow=TRUE)) +
     annotate("text", x = 0, y = Inf, label = "Negative Binomial", vjust = 1.5, hjust = 0, size = 3.5) +
     annotate("text", x = 0, y = Inf, label = expression(paste(delta, " = ", 9)), vjust = 3, hjust = 0) +
     theme_minimal() +
     theme(panel.border = element_rect(color = "darkgrey", fill = NA, linewidth = 1),
           plot.margin = margin(l = 24, r = 12, unit = "pt"),
           legend.position.inside = c(1, 0),
-          legend.justification.inside = c(1, 0),
-          legend.spacing = unit(5,"cm"))
+          legend.justification.inside = c(1, 0))
 
   fig_1 <- ggarrange(
     fig_1a + 
@@ -145,5 +144,65 @@ fig_1c <- dat %>%
     nrow = 1, ncol = 3
     )
 ggsave("newfig1.pdf", fig_1, height=8, width=14.5, units="cm") 
+
+poisson_colors <- c(scales::col2hcl("#226e83", l = 40),
+                    scales::col2hcl("#226e83", l = 70))
+negbin_colors <- c(scales::col2hcl("#e2908c", l = 40),
+                    scales::col2hcl("#e2908c", l = 70))
+
+fig_1ab <- dat %>% 
+  filter(model == "Poisson mixture") %>% 
+  ggplot(aes(x = p, y = value, color = factor(delta, levels = c("9","2")), linetype = measure)) +
+    geom_line() +
+    scale_color_manual(values = poisson_colors) +
+    scale_linetype_manual(values = c("dashed", "solid")) +
+    expand_limits(y = ymax) +
+    xlab(expression(paste("Fraction of poulation ", italic("p"), " in high contact group"))) +
+    guides(linetype = guide_legend(position = "inside",title = NULL),
+           color = "none") +
+    annotate("text", x = 0, y = Inf, label = "Poisson mixture", vjust = 1.5, hjust = 0, size = 3.5) +
+    annotate("text", x = 1, y = Inf, color = poisson_colors[1], label = expression(paste(delta, " = ", 9)), vjust = 1.5, hjust = 1) +
+    annotate("text", x = 1, y = Inf, color = poisson_colors[2], label = expression(paste(delta, " = ", 2)), vjust = 3.5, hjust = 1) +
+    theme_minimal() +
+    theme(panel.border = element_rect(color = "darkgrey", fill = NA, linewidth = 1),
+          plot.margin = margin(l = 24, unit = "pt"),
+          legend.position.inside = c(0, 0.95),
+          legend.justification.inside = c(-0.1, 1))
+
+fig_1c_alt <- dat %>% 
+  filter(model %in% c("Neg. binom. mixture", "Neg. binom.") & delta == 9 ) %>% 
+  ggplot(aes(x = p, y = value, color = model, linetype = measure)) +
+    geom_line() +
+    scale_linetype_manual(values = c("dashed", "solid")) +
+    scale_color_manual(values = negbin_colors, labels = c("mixture", "standard")) +
+    expand_limits(y = ymax) +
+    xlab(expression(paste("Fraction of poulation ", italic("p"), " in high contact group"))) +
+    guides(linetype = guide_legend(position = "inside",title = NULL),
+           color = "none") +
+    annotate("text", x = 0, y = Inf, label = "Negative Binomial", vjust = 1.5, hjust = 0, size = 3.5) +
+    annotate("text", x = 1, y = Inf, label = expression(paste(delta, " = ", 9)), vjust = 1.5, hjust = 1) +
+    annotate("text", x = .75, y = 35, color = negbin_colors[1], label = "mixture", vjust = 0, hjust = 1, size = 3.5) +
+    annotate("text", x = .75, y = 35, color = negbin_colors[2], label = "standard", vjust = 2, hjust = 1, size = 3.5) +
+    theme_minimal() +
+    theme(panel.border = element_rect(color = "darkgrey", fill = NA, linewidth = 1),
+          plot.margin = margin(l = 24, r = 12, unit = "pt"),
+          legend.position.inside = c(0, 0.95),
+          legend.justification.inside = c(-0.1, 1))
+
+fig_1_alt <- ggarrange(
+    fig_1ab + 
+      labs(title="a") +
+      theme(plot.margin = margin(b = 1),
+            axis.title.y = element_text(size=10),
+            legend.text = element_text(size=8)), 
+    fig_1c_alt +
+      labs(title="b") +
+      theme(axis.title.x = element_blank(),
+            axis.title.y = element_blank(),
+            legend.text=element_text(size=8)), 
+    nrow = 1, ncol = 2
+    )
+ggsave("newfig1_alt.pdf", fig_1_alt, height=8, width=14.5, units="cm") 
+
 
 ```
