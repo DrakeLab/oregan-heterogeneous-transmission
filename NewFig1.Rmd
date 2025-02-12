@@ -1,0 +1,149 @@
+---
+title: "NewFig1"
+output: html_document
+date: "2025-02-10"
+---
+
+
+## Variance of the mixture model compared with standard model
+
+
+```{r, warning=FALSE}
+library(tidyverse)
+library(egg)
+
+
+#variance of Poisson offspring function
+varPoissonmixtureoffspring<-function(p, R0D,delta){
+  #variance is concave up quadratic function of p
+  v<-p*(R0D+delta) + (1-p)*(R0D) + p*(1-p)*delta^2
+}
+#variance of negative binomial finite mixture offspring function
+varNegBinommixtureoffspring<-function(p, R0D,k, delta){
+  #variance is concave up quadratic function of p
+  v<-R0D*(1+R0D/k) + p*delta*(1 + delta*(1-p) + (2*R0D+delta)/k)
+}
+#variance of offspring function
+varNegBinomoffspring<-function(R0,k){ 
+  v<-R0*(1+R0/k)
+}
+
+# #parameters
+# k<-4
+# R0D<-1.1
+# sdelta <-2
+# bdelta<-9
+# pseq<-seq(0,1, 0.01)
+# ## Want a 1 row 3 column figure comparing finite Poisson mixture with finite negative binomial mixture. Each figure adds progressively more heterogeneity in the case distribution.
+# #figure 1a) variance is greater than mean when delta is small (small asymmetry between risk groups)
+# y1<-varPoissonmixtureoffspring(pseq, R0D,delta=sdelta) #variance
+# x1<-R0D + pseq*sdelta #mean
+# plot(y1~pseq,type='l')
+# lines(x1~pseq,lty=2)
+# legend(0.8, 2, c("mean", "variance"), lty=c(2,1) )
+# 
+# #figure 1b) variance is greater than mean when delta is big (big asymmetry)
+# y2<-varPoissonmixtureoffspring(pseq, R0D,delta=bdelta)
+# x2<-R0D + pseq*bdelta
+# plot(y2~pseq,type='l')
+# lines(x2~pseq,lty=2)
+# legend(0.8, 6, c("mean", "variance"), lty=c(2,1) )
+# #figure 1c) compare variance of negative binomial finite mixture with standard negative binomial to show they only agree at p=0,1 and finite mixture is always greater
+# y<-varNegBinommixtureoffspring(pseq, R0D,k, delta=bdelta)
+# x<-varNegBinomoffspring(pseq*(R0D+bdelta) + (1-pseq)*(R0D), k)
+# plot(y~pseq, type='l')
+# lines(x~pseq, type = 'l', lty=2)
+# legend(0.8, 10, c("mixture", "standard"), lty=c(1,2) )
+
+
+# results
+dat <- expand.grid(p = seq(0,1, 0.01), 
+                   delta = c(2,9),
+                   R0D = 1.1,
+                   k = 4,
+                   model = c("Poisson mixture", "Neg. binom. mixture", "Neg. binom.") 
+                   ) %>% 
+  mutate(mean = R0D + p*delta,
+         variance = case_when(model == "Poisson mixture" ~ 
+                                varPoissonmixtureoffspring(p = p, R0D = R0D, delta = delta),
+                              model == "Neg. binom. mixture" ~ 
+                                varNegBinommixtureoffspring(p = p, R0D = R0D, k = k, delta = delta),
+                              model == "Neg. binom." ~ 
+                                varNegBinomoffspring(R0 = p*(R0D+delta)+(1-p)*R0D, k=k)
+                              )) %>% 
+  pivot_longer(cols = c("mean","variance"), names_to = "measure")
+
+ymax <- 50
+
+fig_1a <- dat %>% 
+  filter(model == "Poisson mixture" & delta == 2) %>% 
+  ggplot(aes(x = p, y = value, linetype = measure)) +
+    geom_line(color = "#226e83") +
+    scale_linetype_manual(values = c("dashed", "solid")) +
+    expand_limits(y = ymax) +
+    xlab(expression(paste("Fraction of poulation ", italic("p"), " belonging to high contact group"))) +
+    guides(linetype = guide_legend(position = "inside",title = NULL)) +
+    annotate("text", x = 0, y = Inf, label = "Poisson mixture", vjust = 1.5, hjust = 0, size = 3.5) +
+    annotate("text", x = 0, y = Inf, label = expression(paste(delta, " = ", 2)), vjust = 3, hjust = 0) +
+    theme_minimal() +
+    theme(panel.border = element_rect(color = "darkgrey", fill = NA, linewidth = 1),
+          plot.margin = margin(l = 24, unit = "pt"),
+          legend.position.inside = c(0, 0.85),
+          legend.justification.inside = c(-0.1, 1))
+
+fig_1b <- dat %>% 
+  filter(model == "Poisson mixture" & delta == 9) %>% 
+  ggplot(aes(x = p, y = value, linetype = measure)) +
+    geom_line(color = "#226e83") +
+    scale_linetype_manual(values = c("dashed", "solid")) +
+    expand_limits(y = ymax) +
+    xlab(expression(paste("Fraction of poulation ", italic("p"), " belonging to high contact group"))) +
+    guides(linetype = guide_legend(position = "inside",title = NULL)) +
+    annotate("text", x = 0, y = Inf, label = "Poisson mixture", vjust = 1.5, hjust = 0, size = 3.5) +
+    annotate("text", x = 0, y = Inf, label = expression(paste(delta, " = ", 9)), vjust = 3, hjust = 0) +
+    theme_minimal() +
+    theme(panel.border = element_rect(color = "darkgrey", fill = NA, linewidth = 1),
+          plot.margin = margin(l = 24, unit = "pt"),
+          legend.position.inside = c(0, 0.85),
+          legend.justification.inside = c(-0.1, 1))
+
+
+fig_1c <- dat %>% 
+  filter(model %in% c("Neg. binom. mixture", "Neg. binom.") & delta == 9 & measure == "variance") %>% 
+  ggplot(aes(x = p, y = value, color = model)) +
+    geom_line() +
+    # scale_linetype_manual(values = c("solid", "dotted")) +
+    scale_color_manual(values = c("#e2908c", "darkgrey"), labels = c("mixture", "standard")) +
+    expand_limits(y = ymax) +
+    xlab(expression(paste("Fraction of poulation ", italic("p"), " belonging to high contact group"))) +
+    guides(color = guide_legend(position = "inside",title = NULL, byrow=TRUE)) +
+    annotate("text", x = 0, y = Inf, label = "Negative Binomial", vjust = 1.5, hjust = 0, size = 3.5) +
+    annotate("text", x = 0, y = Inf, label = expression(paste(delta, " = ", 9)), vjust = 3, hjust = 0) +
+    theme_minimal() +
+    theme(panel.border = element_rect(color = "darkgrey", fill = NA, linewidth = 1),
+          plot.margin = margin(l = 24, r = 12, unit = "pt"),
+          legend.position.inside = c(1, 0),
+          legend.justification.inside = c(1, 0),
+          legend.spacing = unit(5,"cm"))
+
+  fig_1 <- ggarrange(
+    fig_1a + 
+      labs(title="a") +
+      theme(axis.title.x=element_blank(),
+            plot.margin = margin(b = 1),
+            axis.title.y = element_text(size=10),
+            legend.text=element_text(size=8)), 
+    fig_1b +
+      labs(title="b") +
+      theme(axis.title.y = element_blank(),
+            legend.text=element_text(size=8)), 
+    fig_1c +
+      labs(title="c") +
+      theme(axis.title.x=element_blank(),
+            axis.title.y = element_blank(),
+            legend.text=element_text(size=8)), 
+    nrow = 1, ncol = 3
+    )
+ggsave("newfig1.pdf", fig_1, height=8, width=14.5, units="cm") 
+
+```
