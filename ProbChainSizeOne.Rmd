@@ -1,0 +1,88 @@
+---
+title: "Probability of chain size 1"
+output: html_document
+date: "2025-02-13"
+---
+
+## Probability of chain size of one
+
+```{r, warning=FALSE, message = FALSE}
+library(tidyverse)
+library(egg)
+
+
+# results
+dat <- expand.grid(p = seq(0,1, 0.01), 
+                   delta = 9,
+                   R0D = 1.1,
+                   k = 4,
+                   model = c("Poisson", "Negative binomial") ,
+                   version = c("mixture", "standard")
+                   ) %>% 
+  mutate(Probability = case_when(model == "Poisson" & version == "mixture" ~ 
+                                   p*exp(-(R0D + delta))+(1-p)*exp(-(R0D)),
+                                 model == "Poisson" & version == "standard" ~ 
+                                   exp(-(R0D + p*delta)),
+                                 model == "Negative binomial" & version == "mixture" ~ 
+                                   p*(k/(k + R0D + delta))^k + (1 - p)* (k/(k + R0D))^k,
+                                 model == "Negative binomial" & version == "standard" ~ 
+                                   (k/(k + R0D + p*delta))^k
+                                 ))
+
+ymax <- 0.5
+
+poisson_colors <- c(scales::col2hcl("#226e83", l = 40), # dark blue
+                    scales::col2hcl("#226e83", l = 70)) # light blue
+negbin_colors <- c(scales::col2hcl("#e2908c", l = 40), # dark red
+                    scales::col2hcl("#e2908c", l = 70)) # light red
+
+
+fig_ProbChainOne_a <- dat %>% filter(model == "Poisson") %>% 
+  ggplot(aes(x = p, y = Probability, color = version)) +
+    geom_line() +
+    scale_color_manual(values = poisson_colors) +
+    expand_limits(y = ymax) +
+    xlab(expression(paste("fraction of population ", italic("p"), " in high contact group"))) +
+    ylab(expression(paste("probability of chain size 1"))) +
+    guides(color = guide_legend(position = "inside", title = NULL)) +
+    annotate("text", label = "Poisson", 
+             x = 0, y = Inf, vjust = 1.5, hjust = 0, size = 3.5) +
+    theme_minimal() +
+    theme(panel.border = element_rect(color = "darkgrey", fill = NA, linewidth = 1),
+          plot.margin = margin(l = 24, unit = "pt"),
+          legend.position.inside = c(.95, .95),
+          legend.justification.inside = c(1, 1))
+
+fig_ProbChainOne_b <- dat %>% filter(model == "Negative binomial") %>% 
+  ggplot(aes(x = p, y = Probability, color = version)) +
+    geom_line() +
+    scale_color_manual(values = negbin_colors) +
+    expand_limits(y = ymax) +
+    xlab(expression(paste("fraction of population ", italic("p"), " in high contact group"))) +
+    ylab(expression(paste("probability of chain size 1"))) +
+    guides(color = guide_legend(position = "inside", title = NULL)) +
+    annotate("text", label = "Negative binomial", 
+             x = 0, y = Inf, vjust = 1.5, hjust = 0, size = 3.5) +
+    theme_minimal() +
+    theme(panel.border = element_rect(color = "darkgrey", fill = NA, linewidth = 1),
+          plot.margin = margin(l = 24, r = 12, unit = "pt"),
+          legend.position.inside = c(.95, .95),
+          legend.justification.inside = c(1, 1))
+
+fig_ProbChainOne <- ggarrange(
+    fig_ProbChainOne_a + 
+      labs(title="a") +
+      theme(plot.margin = margin(b = 1, t = 1),
+            axis.title.x = element_text(size=9),
+            axis.title.y = element_text(size=10),
+            legend.text = element_text(size=8)), 
+    fig_ProbChainOne_b +
+      labs(title="b") +
+      theme(axis.title.x = element_text(size=9),
+            axis.title.y = element_blank(),
+            legend.text=element_text(size=8)), 
+    nrow = 1, ncol = 2
+    )
+ggsave("fig_ProbChainOne.pdf", fig_ProbChainOne, height=8, width=14.5, units="cm") 
+
+```
